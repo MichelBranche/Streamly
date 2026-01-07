@@ -1,3 +1,10 @@
+/* 
+  STREAMLY NOTE (LOCAL NETWORK BLOCK)
+  If your frontend is on HTTPS (GitHub Pages), Chrome will block API calls to http://localhost or private IPs.
+  This build auto-ignores saved localhost/private apiBase and prefers meta streamly-api-base (Render HTTPS).
+  If you still see blocks, clear LocalStorage keys: streamly_settings_v2, streamly_token_v1 and refresh.
+*/
+
 /* Streamly — vanilla HTML/CSS/JS (v5)
    - Profiles (username + password) via API server (server.js)
    - Library persisted server-side (JSON + /uploads for posters)
@@ -51,6 +58,34 @@
       return u.replace(/\/+$/, "");
     }
   };
+
+  const isPrivateHostname = (host) => {
+    const h = String(host || "").toLowerCase();
+    if (!h) return false;
+    if (h === "localhost" || h === "127.0.0.1" || h === "[::1]") return true;
+    if (h.endsWith(".local")) return true;
+
+    const ip = h.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+    if (!ip) return false;
+    const a = Number(ip[1]), b = Number(ip[2]), c = Number(ip[3]), d = Number(ip[4]);
+    if (![a,b,c,d].every((n) => Number.isFinite(n) && n >= 0 && n <= 255)) return false;
+
+    if (a === 10) return true;
+    if (a === 127) return true;
+    if (a === 192 && b === 168) return true;
+    if (a === 172 && b >= 16 && b <= 31) return true;
+    return false;
+  };
+
+  const isBlockedLocalNetworkUrl = (base) => {
+    try {
+      const u = new URL(normalizeBase(base), location.origin);
+      return u.protocol === "http:" && isPrivateHostname(u.hostname);
+    } catch {
+      return false;
+    }
+  };
+
 
   const toWsUrl = (apiBase) => {
     try {
@@ -1470,6 +1505,13 @@
       settings.apiBase = normalizeBase(settings.apiBase);
     }
 
+    // If frontend is HTTPS, Chrome may block requests to http://localhost/private IPs.
+    // If saved apiBase is local-network HTTP, ignore it and prefer metaBase (Render HTTPS).
+    if (location.protocol === "https:" && isBlockedLocalNetworkUrl(settings.apiBase)) {
+      const fromMeta = normalizeBase(metaBase);
+      settings.apiBase = fromMeta && fromMeta.startsWith("https://") ? fromMeta : "";
+    }
+
     safeSet(SETTINGS_KEY, settings);
 
     // prefill API base inputs (empty allowed; forms require it)
@@ -1480,6 +1522,18 @@
     // default ws (only if apiBase present)
     if (!settings.wsUrl && settings.apiBase) {
       settings.wsUrl = toWsUrl(settings.apiBase);
+      safeSet(SETTINGS_KEY, settings);
+    }
+
+    // keep wsUrl consistent with apiBase
+    if (settings.apiBase) {
+      const desired = toWsUrl(settings.apiBase);
+      if (!settings.wsUrl || settings.wsUrl !== desired) {
+        settings.wsUrl = desired;
+        safeSet(SETTINGS_KEY, settings);
+      }
+    } else {
+      settings.wsUrl = "";
       safeSet(SETTINGS_KEY, settings);
     }
 
