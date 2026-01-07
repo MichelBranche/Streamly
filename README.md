@@ -1,32 +1,23 @@
-# Streamly backend (v6)
+# Streamly (frontend)
 
-Metti `package.json` **nella stessa cartella** di `server.js` (root del backend).
+## Serve quello che hai fatto su Render?
+Sì: se il frontend è su GitHub Pages (HTTPS) non puoi dipendere da `http://localhost` per profili/libreria/watch-party remoto.
+Il backend deve stare online in HTTPS (es. Render) per:
+- registrazione/login
+- salvataggio libreria (non solo locale)
+- upload poster
+- watch party remoto (WebSocket)
 
-## Struttura consigliata
-```
-streamly/
-  frontend/   (GitHub Pages: index.html, styles.css, script.js)
-  backend/    (Node: server.js + package.json)
-```
+## Cosa mettere in “API Base URL”
+Inserisci l’URL del tuo backend Render (quello che finisce con `.onrender.com`), per esempio:
+`https://streamly-ugmo.onrender.com`
 
-## Avvio in locale
-Da `backend/`:
-```
-npm install
-npm start
-```
-Backend: `http://localhost:8787`
+Nota: la WebSocket usa automaticamente lo stesso dominio su `/ws` (quindi `wss://.../ws`).
 
-## GitHub Pages (importante)
-GitHub Pages è **solo statico**: non può gestire `POST /api/register`, upload o WebSocket.
+## 409 (Conflict) su /api/register
+Vuol dire che **l’utente esiste già**: vai su **Accedi** invece di **Crea profilo**.
 
-Quindi:
-1) Pubblica il backend su un host Node (Render/Fly/Railway/VPS).
-2) Imposta `CORS_ORIGINS` con l’URL del tuo GitHub Pages (es: `https://<user>.github.io`).
-3) In Streamly -> Settings -> **API Base** metti l’URL del backend (es: `https://streamly-backend.onrender.com`).
-
-## Env opzionali
-- `PORT` (default 8787)
-- `CORS_ORIGINS` (default `*`, meglio restringere)
-- `STREAMLY_DATA_DIR` (default `./data`)
-- `STREAMLY_UPLOADS_DIR` (default `./uploads`)
+## Config veloce senza riscrivere JS
+In `index.html` c’è:
+`<meta name="streamly-api-base" content="...">`
+Puoi metterci lì il tuo URL backend, e l’app lo precompila.

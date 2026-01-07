@@ -43,45 +43,6 @@ const MIME_BY_EXT = {
   ".webp": "image/webp",
 };
 
-const STATIC_MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".woff": "font/woff",
-  ".ttf": "font/ttf",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-};
-
-const detectFrontendDir = () => {
-  const env = process.env.STREAMLY_FRONTEND_DIR;
-  const candidates = [
-    env,
-    process.cwd(),
-    path.join(process.cwd(), ".."),
-    __dirname,
-    path.join(__dirname, ".."),
-  ].filter(Boolean);
-
-  for (const c of candidates) {
-    const dir = path.resolve(c);
-    try {
-      if (fs.existsSync(path.join(dir, "index.html"))) return dir;
-    } catch {}
-  }
-  return null;
-};
-
-const FRONTEND_DIR = detectFrontendDir();
-
 let SECRET = null;
 
 /* ------------------------------ utils ------------------------------ */
@@ -335,56 +296,6 @@ const serveUpload = async (req, res, pathname, origin) => {
   }
 };
 
-const serveFile = async (req, res, filePath, origin) => {
-  const st = await fsp.stat(filePath);
-  if (!st.isFile()) throw new Error("not file");
-  const ext = path.extname(filePath).toLowerCase();
-  const ct = STATIC_MIME[ext] || MIME_BY_EXT[ext] || "application/octet-stream";
-
-  res.writeHead(200, {
-    "Content-Type": ct,
-    "Content-Length": st.size,
-    "Cache-Control": "no-store",
-    ...corsHeaders(origin),
-  });
-
-  if (req.method === "HEAD") return res.end();
-  fs.createReadStream(filePath).pipe(res);
-};
-
-const tryServeFrontend = async (req, res, pathname, origin) => {
-  if (!FRONTEND_DIR) return false;
-  if (req.method !== "GET" && req.method !== "HEAD") return false;
-
-  // Don't hijack API/uploads routes
-  if (pathname.startsWith("/api")) return false;
-  if (pathname.startsWith("/uploads/")) return false;
-
-  let reqPath = pathname;
-  try {
-    reqPath = decodeURIComponent(pathname);
-  } catch {}
-
-  if (reqPath === "/") reqPath = "/index.html";
-
-  const target = path.resolve(path.join(FRONTEND_DIR, "." + reqPath));
-  if (!target.startsWith(FRONTEND_DIR)) return false;
-
-  try {
-    await serveFile(req, res, target, origin);
-    return true;
-  } catch {
-    // SPA fallback: if it's a "route" (no extension), serve index.html
-    if (!path.extname(reqPath)) {
-      try {
-        await serveFile(req, res, path.join(FRONTEND_DIR, "index.html"), origin);
-        return true;
-      } catch {}
-    }
-    return false;
-  }
-};
-
 /* ------------------------------ routing ------------------------------ */
 
 const handler = async (req, res) => {
@@ -403,9 +314,6 @@ const handler = async (req, res) => {
   if (pathname.startsWith("/uploads/")) {
     return serveUpload(req, res, pathname, origin);
   }
-
-  // frontend static (same-origin UI -> avoids https->http localhost blocks)
-  if (await tryServeFrontend(req, res, pathname, origin)) return;
 
   // health
   if (req.method === "GET" && pathname === "/api/health") {
@@ -733,7 +641,5 @@ const broadcastToRoom = (room, fromWs, msg) => {
 
   server.listen(PORT, () => {
     console.log(`Streamly backend on http://localhost:${PORT}`);
-    if (FRONTEND_DIR) console.log(`Serving frontend from: ${FRONTEND_DIR}`);
-    else console.log(`Frontend not found (set STREAMLY_FRONTEND_DIR).`);
   });
 })();

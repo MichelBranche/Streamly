@@ -4,6 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
+  <meta name="streamly-api-base" content="https://streamly-ugmo.onrender.com" />
   <title>Streamly</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -34,30 +35,30 @@
         <button class="seg__btn" type="button" data-auth-tab="login" role="tab" aria-selected="false">Accedi</button>
       </div>
 
-      <form class="form" id="registerForm" autocomplete="off">
+      <form class="form" id="registerForm" autocomplete="on">
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">API Base URL</span>
-            <input class="field__input" id="apiBaseInput" type="url" placeholder="https://tuo-server.example" required />
+            <input class="field__input" id="apiBaseInput" type="url" placeholder="https://tuo-server.example" required autocomplete="url">
           </label>
         </div>
 
         <div class="form__row">
           <label class="field">
             <span class="field__label">Username</span>
-            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9_\-]{3,24}" placeholder="es. michel" required />
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9_\-]{3,24}" placeholder="es. michel" required  autocomplete="username" />
           </label>
 
           <label class="field">
             <span class="field__label">Password</span>
-            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required  autocomplete="new-password" />
           </label>
         </div>
 
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">Conferma password</span>
-            <input class="field__input" name="password2" type="password" minlength="6" maxlength="72" required />
+            <input class="field__input" name="password2" type="password" minlength="6" maxlength="72" required  autocomplete="new-password" />
           </label>
         </div>
 
@@ -70,23 +71,23 @@
         </p>
       </form>
 
-      <form class="form" id="loginForm" hidden autocomplete="off">
+      <form class="form" id="loginForm" hidden autocomplete="on">
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">API Base URL</span>
-            <input class="field__input" id="apiBaseInput2" type="url" placeholder="https://tuo-server.example" required />
+            <input class="field__input" id="apiBaseInput2" type="url" placeholder="https://tuo-server.example" required autocomplete="url">
           </label>
         </div>
 
         <div class="form__row">
           <label class="field">
             <span class="field__label">Username</span>
-            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" required />
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" required  autocomplete="username" />
           </label>
 
           <label class="field">
             <span class="field__label">Password</span>
-            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required  autocomplete="current-password" />
           </label>
         </div>
 

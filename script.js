@@ -51,19 +51,6 @@
       return u.replace(/\/+$/, "");
     }
   };
-  const isLocalHost = (host) => {
-    const h = String(host || "").toLowerCase();
-    return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0" || h.endsWith(".local");
-  };
-
-  const defaultApiBase = () => {
-    const saved = normalizeBase(settings?.apiBase || "");
-    if (saved) return saved;
-    // Safe default only for local dev. Static hosts (es. GitHub Pages) non accettano POST.
-    if (isLocalHost(location.hostname)) return location.origin;
-    return "";
-  };
-
 
   const toWsUrl = (apiBase) => {
     try {
@@ -303,7 +290,7 @@
     els.loginForm.hidden = tab !== "login";
 
     // keep api base in sync
-    const a = normalizeBase(els.apiBaseInput.value || els.apiBaseInput2.value || settings.apiBase || (isLocalHost(location.hostname) ? location.origin : ""));
+    const a = normalizeBase(els.apiBaseInput.value || els.apiBaseInput2.value || settings.apiBase || location.origin);
     els.apiBaseInput.value = a;
     els.apiBaseInput2.value = a;
 
@@ -313,10 +300,7 @@
 
   /* ------------------------------ API ------------------------------ */
   const apiFetch = async (path, opts = {}) => {
-    const apiBase = defaultApiBase();
-    if (!apiBase) {
-      throw new Error("Configura API Base (backend). Su GitHub Pages non puoi fare POST senza un server.");
-    }
+    const apiBase = normalizeBase(settings.apiBase || location.origin);
     const url = resolveUrl(apiBase, path.startsWith("/") ? path : `/${path}`);
 
     const headers = new Headers(opts.headers || {});
@@ -342,11 +326,14 @@
     }
 
     if (!res.ok) {
-      if (res.status === 405) {
-        throw new Error("HTTP 405: API Base non accetta questo metodo. Se stai su GitHub Pages devi usare un backend separato (server.js) e impostare API Base.");
-      }
       const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
-      throw new Error(msg);
+      const e = new Error(res.status === 405
+        ? "HTTP 405: API Base non accetta questo metodo. Se stai su GitHub Pages devi usare un backend separato (server.js) e impostare API Base."
+        : msg
+      );
+      e.status = res.status;
+      e.payload = data;
+      throw e;
     }
 
     return data;
@@ -1241,7 +1228,7 @@
 
   /* ------------------------------ settings ------------------------------ */
   const openSettings = () => {
-    els.apiBase.value = normalizeBase(settings.apiBase || els.apiBaseInput.value || (isLocalHost(location.hostname) ? location.origin : ""));
+    els.apiBase.value = normalizeBase(settings.apiBase || els.apiBaseInput.value || location.origin);
     els.partyDefaultMode.value = settings.partyDefaultMode || "off";
 
     const ws = settings.wsUrl || toWsUrl(els.apiBase.value) || "";
@@ -1252,7 +1239,7 @@
 
   const saveSettings = () => {
     settings = {
-      apiBase: normalizeBase(els.apiBase.value || settings.apiBase || (isLocalHost(location.hostname) ? location.origin : "")),
+      apiBase: normalizeBase(els.apiBase.value || settings.apiBase || location.origin),
       partyDefaultMode: els.partyDefaultMode.value,
       wsUrl: els.wsUrl.value.trim() || toWsUrl(els.apiBase.value) || "",
     };
@@ -1335,6 +1322,14 @@
       render();
       showApp();
     } catch (err) {
+      if (err?.status === 409) {
+        showNotice("Utente già esistente. Vai su Login.", "error");
+        setAuthTab("login");
+        const u = els.loginForm.querySelector("input[name='username']");
+        if (u) u.value = username;
+        els.loginForm.querySelector("input[name='password']")?.focus?.();
+        return;
+      }
       showNotice(String(err?.message || err || "Errore"), "error");
     }
   });
@@ -1458,43 +1453,37 @@
   });
 
   /* ------------------------------ init ------------------------------ */
-  const probeHealth = async (base) => {
-    try {
-      const res = await fetch(`${base}/api/health`, { method: "GET" });
-      if (!res.ok) return false;
-      const ct = res.headers.get("content-type") || "";
-      if (!ct.includes("application/json")) return false;
-      const data = await res.json().catch(() => null);
-      return !!data?.ok;
-    } catch {
-      return false;
-    }
-  };
-
   const init = async () => {
-    // default API base: solo localhost auto, altrove va impostato
-    settings.apiBase = normalizeBase(settings.apiBase || "");
-    if (!settings.apiBase && isLocalHost(location.hostname)) settings.apiBase = location.origin;
+    // smarter default API base:
+    // - if user already saved it -> keep
+    // - else try meta[name="streamly-api-base"]
+    // - else if running locally -> use location.origin
+    // - else keep empty (user must paste backend URL, e.g. Render), avoids 405 on static hosts
+    const metaBase = document.querySelector('meta[name="streamly-api-base"]')?.getAttribute("content")?.trim() || "";
+    const isLocalHost = /^(localhost|127\.0\.0\.1)$/i.test(location.hostname);
+    const isStaticHost = /(github\.io|pages\.dev|netlify\.app|vercel\.app)$/i.test(location.hostname);
 
-    // Se l"app gira su un host statico senza backend e l"API base coincide col sito, svuota (evita HTTP 405)
-    if (settings.apiBase && settings.apiBase === location.origin && !isLocalHost(location.hostname)) {
-      const ok = await probeHealth(settings.apiBase);
-      if (!ok) settings.apiBase = "";
+    if (!settings.apiBase) {
+      const fromMeta = normalizeBase(metaBase);
+      settings.apiBase = fromMeta || (isLocalHost ? location.origin : "");
+    } else {
+      settings.apiBase = normalizeBase(settings.apiBase);
     }
 
     safeSet(SETTINGS_KEY, settings);
 
-    // prefill API base inputs
-    els.apiBaseInput.value = settings.apiBase;
-    els.apiBaseInput2.value = settings.apiBase;
+    // prefill API base inputs (empty allowed; forms require it)
+    const prefill = settings.apiBase || normalizeBase(metaBase) || "";
+    els.apiBaseInput.value = prefill;
+    els.apiBaseInput2.value = prefill;
 
-    // default ws
-    if (settings.apiBase && !settings.wsUrl) {
+    // default ws (only if apiBase present)
+    if (!settings.wsUrl && settings.apiBase) {
       settings.wsUrl = toWsUrl(settings.apiBase);
       safeSet(SETTINGS_KEY, settings);
     }
 
-    // Try restore session
+    // Try restore session only if we have an API base
     if (token && settings.apiBase) {
       try {
         await fetchMe();
@@ -1507,13 +1496,16 @@
       }
     }
 
-    showAuth();
-    if (!settings.apiBase && !isLocalHost(location.hostname)) {
-      showNotice("Se stai su GitHub Pages: avvia/deploya server.js e inserisci qui l’API Base del backend.", "info");
+    // Static host + no API base => force paste backend URL
+    if (isStaticHost && !settings.apiBase) {
+      showAuth();
+      setAuthTab("login");
+      showNotice("Incolla l’URL HTTPS del backend (Render) in “API Base URL”.", "error");
+      return;
     }
+
+    showAuth();
     setAuthTab("register");
   };
 
-  init();
-
-})();
+  init();})();

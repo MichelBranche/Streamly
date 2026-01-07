@@ -1,0 +1,10 @@
+{
+  "users": {
+    "michel": {
+      "username": "michel",
+      "salt": "1c281d41547d77f8c7cbd4b15faf0a20",
+      "hash": "d58b545ba6698ac4f3a850778ec717476a3ce1bf8220e3574dd1f04d66e6b174",
+      "createdAt": 1767824492750
+    }
+  }
+}
