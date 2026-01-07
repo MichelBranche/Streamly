@@ -391,10 +391,18 @@
     const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
 
     if (res.status === 401) {
-      const msg = (data && data.error) ? data.error : "Unauthorized";
+      const rawMsg = (data && data.error) ? data.error : "Unauthorized";
+      const msg =
+        rawMsg === "Unauthorized"
+          ? "Credenziali non valide (o utente non esiste su questo backend). Se non hai mai creato l’utente su Render, usa “Crea profilo”."
+          : rawMsg;
+
+      // For login/register, do NOT reset session; it's just wrong credentials
       if (String(path).includes("/api/login") || String(path).includes("/api/register")) {
         throw new Error(msg);
       }
+
+      // Otherwise token is invalid/expired
       token = "";
       me = null;
       safeSet(TOKEN_KEY, "");
