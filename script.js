@@ -2,7 +2,7 @@
   STREAMLY NOTE (LOCAL NETWORK BLOCK)
   If your frontend is on HTTPS (GitHub Pages), Chrome will block API calls to http://localhost or private IPs.
   This build auto-ignores saved localhost/private apiBase and prefers meta streamly-api-base (Render HTTPS).
-  If you still see blocks, clear LocalStorage keys: streamly_settings_v2, streamly_token_v1 and refresh.
+  If you still see blocks, clear LocalStorage keys: streamly:v5:settings, streamly:v5:token and refresh.
 */
 
 /* Streamly — vanilla HTML/CSS/JS (v5)
@@ -351,77 +351,53 @@
   /* ------------------------------ API ------------------------------ */
   const apiFetch = async (path, opts = {}) => {
     const apiBase = normalizeBase(settings.apiBase || "");
-    if (!apiBase) {
-      const e = new Error("API Base URL mancante. Incolla l’URL HTTPS del backend (Render).");
-      e.status = 0;
-      throw e;
-    }
+    if (!apiBase) throw new Error("Inserisci API Base URL (backend HTTPS).");
 
     const url = resolveUrl(apiBase, path.startsWith("/") ? path : `/${path}`);
 
     const headers = new Headers(opts.headers || {});
     headers.set("Accept", "application/json");
+    if (opts.body && !(opts.body instanceof FormData)) {
+      headers.set("Content-Type", headers.get("Content-Type") || "application/json");
+    }
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
-    // timeout support (Render Free può essere lento al primo colpo)
-    const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 65000;
-    const controller = opts.signal ? null : new AbortController();
-    const signal = opts.signal || controller?.signal;
-
-    const init = {
-      ...opts,
-      headers,
-      signal,
-    };
-
-    // fetch non conosce timeoutMs: rimuoviamolo
-    try { delete init.timeoutMs; } catch {}
-
-    let t = null;
-    if (controller && timeoutMs > 0) {
-      t = setTimeout(() => {
-        try { controller.abort(); } catch {}
-      }, timeoutMs);
-    }
+    const controller = new AbortController();
+    const t = setTimeout(() => controller.abort(), 65000); // Render free can be slow on cold start
 
     let res;
     try {
-      res = await fetch(url, init);
-    } catch (err) {
-      const isAbort = err?.name === "AbortError";
-      const e = new Error(
-        isAbort
-          ? "Timeout: il backend non ha risposto (Render Free può impiegare ~50s se era in sleep). Riprova."
-          : "Errore di rete: impossibile contattare il backend. Controlla API Base URL (deve essere HTTPS) e riprova."
-      );
-      e.status = 0;
-      e.cause = err;
-      e.url = url;
-      throw e;
+      res = await fetch(url, { ...opts, headers, signal: controller.signal });
+    } catch (e) {
+      if (e?.name === "AbortError") throw new Error("Timeout: backend non risponde (cold start?). Riprova.");
+      throw new Error("Errore rete: impossibile contattare il backend.");
     } finally {
-      if (t) clearTimeout(t);
+      clearTimeout(t);
     }
 
     const isJson = (res.headers.get("content-type") || "").includes("application/json");
     const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
 
-    if (!res.ok) {
-      const msg =
-        (data && typeof data === "object" && data.error) ||
-        (typeof data === "string" && data) ||
-        `HTTP ${res.status}`;
+    if (res.status === 401) {
+      const msg = (data && data.error) ? data.error : "Unauthorized";
+      // For login/register, do NOT reset session; it's just wrong credentials
+      if (String(path).includes("/api/login") || String(path).includes("/api/register")) {
+        throw new Error(msg);
+      }
+      // Otherwise token is invalid/expired
+      token = "";
+      me = null;
+      safeSet(TOKEN_KEY, "");
+      showAuth();
+      throw new Error("Sessione scaduta. Accedi di nuovo.");
+    }
 
-      const e = new Error(
-        res.status === 405
-          ? "HTTP 405: stai chiamando un host che non è il backend. Imposta API Base URL al dominio Render."
-          : res.status === 409
-          ? "Utente già esistente: usa Accedi."
-          : msg
-      );
-      e.status = res.status;
-      e.payload = data;
-      e.url = url;
-      throw e;
+    if (!res.ok) {
+      if (res.status === 405) {
+        throw new Error("HTTP 405: stai chiamando il frontend statico. Imposta API Base sul backend (Render).");
+      }
+      const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
+      throw new Error(msg);
     }
 
     return data;
@@ -1405,7 +1381,7 @@
     if (!password || password.length < 6) return showNotice("Password troppo corta (min 6)", "error");
 
     settings.apiBase = apiBase;
-    if (!settings.wsUrl) settings.wsUrl = toWsUrl(apiBase);
+    settings.wsUrl = toWsUrl(apiBase);
     safeSet(SETTINGS_KEY, settings);
 
     const restore = setBusy(els.registerForm, true, "Creazione...");
@@ -1441,7 +1417,7 @@
     if (!password) return showNotice("Inserisci password", "error");
 
     settings.apiBase = apiBase;
-    if (!settings.wsUrl) settings.wsUrl = toWsUrl(apiBase);
+    settings.wsUrl = toWsUrl(apiBase);
     safeSet(SETTINGS_KEY, settings);
 
     const restore = setBusy(els.loginForm, true, "Accesso...");
