@@ -428,6 +428,8 @@
       body: JSON.stringify({ username, password }),
       timeoutMs: 65000,
     });
+    if (!data?.token) throw new Error('Risposta backend senza token');
+    console.info('[Streamly] login ok', { instance: data?.instanceId, token: true });
 
     if (!data?.token) throw new Error("Login fallito");
     token = data.token;
@@ -449,10 +451,10 @@
     try {
       const res = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json" } });
       const ms = Math.round(performance.now() - t0);
-      if (!res.ok) throw new Error(`Backend non OK (HTTP ${res.status})`);
       const data = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(`Backend non OK (HTTP ${res.status})`);
       if (!data?.ok) throw new Error("Backend non OK (/api/health)");
-      return { ok: true, ms };
+      return { ok: true, ms, health: data };
     } catch (e) {
       if (e?.name === "AbortError") throw new Error("Backend non risponde (timeout 15s).");
       throw new Error("Backend non raggiungibile.");
@@ -469,6 +471,8 @@
       body: JSON.stringify({ username, password }),
       timeoutMs: 65000,
     });
+    if (!data?.token) throw new Error('Risposta backend senza token');
+    console.info('[Streamly] register ok', { instance: data?.instanceId, token: true });
 
     if (!data?.token) throw new Error("Registrazione fallita");
     token = data.token;
@@ -1435,7 +1439,7 @@
 
     try {
       const h = await checkHealth(apiBase);
-      showNotice(`Backend OK (${h.ms}ms). Creazione...`, "info");
+      showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Creazione...`, "info");
       await authRegister(username, password);
       await fetchMe();
       await fetchLibrary();
@@ -1473,7 +1477,7 @@
 
     try {
       const h = await checkHealth(apiBase);
-      showNotice(`Backend OK (${h.ms}ms). Accesso...`, "info");
+      showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Accesso...`, "info");
       await authLogin(username, password);
       await fetchMe();
       await fetchLibrary();
@@ -1636,7 +1640,7 @@
           showNotice("Test backend...", "info");
           try {
             const h = await checkHealth(base);
-            hint.textContent = `OK (${h.ms}ms)`;
+            hint.textContent = `OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}`;
             showNotice(`Backend OK (${h.ms}ms).`, "success");
           } catch (e) {
             hint.textContent = "KO";
