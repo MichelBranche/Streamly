@@ -1,480 +1,457 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="it">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Streamly — Private Streaming UI</title>
-  <link rel="stylesheet" href="./styles.css" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="color-scheme" content="dark" />
+  <title>Streamly</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
-
 <body>
-  <a class="skip" href="#main">Vai al contenuto</a>
-  <div class="top-fade" aria-hidden="true"></div>
-
-  <header class="appbar">
-    <div class="container appbar__inner">
-      <a class="brand" href="#browse" aria-label="Streamly Home">
-        <span class="brand__logo">Streamly</span>
-        <span class="brand__badge">private</span>
-      </a>
-
-      <nav class="tabs" aria-label="Sezioni">
-        <a class="tab" href="#browse" data-tab="browse">Browse</a>
-        <a class="tab" href="#studio" data-tab="studio">Studio</a>
-        <a class="tab" href="#settings" data-tab="settings">Impostazioni</a>
-      </nav>
-
-      <div class="right">
-        <div class="search" id="searchWrap">
-          <button class="icon-btn" id="searchBtn" type="button" aria-label="Apri ricerca">
-            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-              <path fill="currentColor" d="M10 18a8 8 0 1 1 5.293-14.01A8 8 0 0 1 10 18Zm0-2a6 6 0 1 0-4.243-1.757A5.96 5.96 0 0 0 10 16Zm9.707 5.707-5.2-5.2 1.414-1.414 5.2 5.2-1.414 1.414Z"/>
-            </svg>
-          </button>
-          <label class="sr-only" for="searchInput">Cerca</label>
-          <input id="searchInput" class="search__input" type="text" placeholder="Cerca titoli, tag…" autocomplete="off"/>
-        </div>
-
-        <div class="profile-wrap" id="profileWrap">
-          <button class="profile" id="profileBtn" type="button" aria-haspopup="true" aria-expanded="false">
-            <span class="profile__avatar" aria-hidden="true" id="profileAvatar">S</span>
-            <span class="profile__name" id="profileName">Streamly</span>
-            <span class="profile__caret" aria-hidden="true">▾</span>
-          </button>
-
-          <div class="popover" id="profilePopover" role="menu" aria-label="Profili" hidden>
-            <div class="popover__head">
-              <strong>Profili</strong>
-              <span class="muted" id="profilesHint">Locale</span>
-            </div>
-
-            <div class="profiles" id="profilesList"></div>
-
-            <div class="divider"></div>
-
-            <div class="field">
-              <label for="newProfileName">Crea profilo</label>
-              <div class="row-inline">
-                <input id="newProfileName" type="text" placeholder="Nome (es. Julia)" />
-                <button class="btn btn--primary" id="addProfileBtn" type="button">＋</button>
-              </div>
-              <p class="hint">Ogni profilo ha like/dislike, lista e progressi separati.</p>
-            </div>
-          </div>
+  <!-- AUTH (prima della home) -->
+  <section class="auth" id="authScreen" aria-label="Accesso">
+    <div class="auth__card" role="region" aria-label="Crea profilo o accedi">
+      <div class="brand brand--hero" aria-label="Streamly">
+        <svg class="brand__mark" width="38" height="38" viewBox="0 0 38 38" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#8b5cf6" />
+              <stop offset="1" stop-color="#22c55e" />
+            </linearGradient>
+          </defs>
+          <path d="M19 2c-5.9 0-10.7 2.3-13.5 6.1C3.2 10.9 2 14 2 17.4c0 4.2 2.1 7.2 6.3 9 2.7 1.2 6.2 1.9 10.2 2.2 3.3.2 5.2.7 6.3 1.4 1.1.7 1.6 1.6 1.6 2.9 0 1.2-.5 2.2-1.6 2.9-1.6 1.1-3.9 1.7-6.8 1.7-4.7 0-8.6-1.5-11.6-4.4L2.1 32C5.9 36 11.2 38 18 38c4.4 0 8.1-.9 10.9-2.7 2.9-1.9 4.3-4.5 4.3-7.8 0-4.1-2-7.1-6-9-2.4-1.2-5.7-1.9-9.9-2.1-3.6-.2-5.7-.7-6.8-1.4-1.1-.7-1.7-1.6-1.7-2.9 0-1.1.5-2 1.4-2.7C12 8 14.5 7.4 17.6 7.4c4 0 7.2 1.1 9.7 3.3l4.4-4.4C28.4 3.5 24.2 2 19 2Z" fill="url(#g)" />
+        </svg>
+        <div class="brand__stack">
+          <div class="brand__name">Streamly</div>
+          <div class="brand__tag">Guarda in sync con chi vuoi</div>
         </div>
       </div>
+
+      <div class="notice" id="authNotice" hidden></div>
+
+      <div class="seg seg--auth" role="tablist" aria-label="Accesso o registrazione">
+        <button class="seg__btn is-active" type="button" data-auth-tab="register" role="tab" aria-selected="true">Crea profilo</button>
+        <button class="seg__btn" type="button" data-auth-tab="login" role="tab" aria-selected="false">Accedi</button>
+      </div>
+
+      <form class="form" id="registerForm" autocomplete="off">
+        <div class="form__row">
+          <label class="field field--wide">
+            <span class="field__label">API Base URL</span>
+            <input class="field__input" id="apiBaseInput" type="url" placeholder="https://tuo-server.example" required />
+          </label>
+        </div>
+
+        <div class="form__row">
+          <label class="field">
+            <span class="field__label">Username</span>
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9_\-]{3,24}" placeholder="es. michel" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
+          </label>
+        </div>
+
+        <div class="form__row">
+          <label class="field field--wide">
+            <span class="field__label">Conferma password</span>
+            <input class="field__input" name="password2" type="password" minlength="6" maxlength="72" required />
+          </label>
+        </div>
+
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit">Crea profilo</button>
+        </div>
+
+        <p class="fineprint">
+          GitHub Pages è statico: per salvare profili/libreria/poster serve un server API (server.js) su un host.
+        </p>
+      </form>
+
+      <form class="form" id="loginForm" hidden autocomplete="off">
+        <div class="form__row">
+          <label class="field field--wide">
+            <span class="field__label">API Base URL</span>
+            <input class="field__input" id="apiBaseInput2" type="url" placeholder="https://tuo-server.example" required />
+          </label>
+        </div>
+
+        <div class="form__row">
+          <label class="field">
+            <span class="field__label">Username</span>
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" required />
+          </label>
+
+          <label class="field">
+            <span class="field__label">Password</span>
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
+          </label>
+        </div>
+
+        <div class="form__actions">
+          <button class="btn btn--primary" type="submit">Accedi</button>
+        </div>
+
+        <p class="fineprint">
+          Suggerimento: l'URL API e l'URL WebSocket possono coincidere (il server espone anche /ws).
+        </p>
+      </form>
     </div>
-  </header>
+  </section>
 
-  <main id="main">
-    <!-- VIEW: BROWSE -->
-    <section class="view" id="viewBrowse" aria-label="Browse">
-      <section class="hero" id="hero">
-        <div class="container hero__inner">
-          <div class="hero__content">
-            <p class="hero__eyebrow" id="heroEyebrow">Streamly Private</p>
-            <h1 class="hero__title" id="heroTitle">Aggiungi il tuo primo titolo</h1>
-            <p class="hero__meta" id="heroMeta">Studio → Nuovo contenuto</p>
-            <p class="hero__desc" id="heroDesc">
-              Incolla un link video (file diretto / YouTube / Vimeo), carica poster e trailer, e sei live.
-            </p>
-
-            <div class="hero__cta">
-              <button class="btn btn--primary" id="heroGoStudioBtn" type="button">＋ Crea contenuto</button>
-              <button class="btn btn--ghost" id="heroLearnBtn" type="button">ⓘ Suggerimenti link</button>
-            </div>
-          </div>
-        </div>
-        <div class="hero__fade" aria-hidden="true"></div>
-      </section>
-
-      <section class="container rows" id="rowsRoot" aria-label="Catalogo"></section>
-    </section>
-
-    <!-- VIEW: TITLE -->
-    <section class="view" id="viewTitle" aria-label="Dettagli titolo">
-      <div class="titlebar">
-        <div class="container titlebar__inner">
-          <button class="back" id="backBtn" type="button" aria-label="Torna indietro">←</button>
-          <div class="titlebar__grow"></div>
-          <button class="btn btn--ghost" id="editTitleBtn" type="button">✎ Modifica</button>
-          <button class="btn btn--ghost" id="deleteTitleBtn" type="button">🗑 Elimina</button>
-        </div>
+  <!-- APP -->
+  <div id="app" hidden>
+    <header class="topbar">
+      <div class="brand" aria-label="Streamly">
+        <svg class="brand__mark" width="26" height="26" viewBox="0 0 38 38" aria-hidden="true">
+          <defs>
+            <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#8b5cf6" />
+              <stop offset="1" stop-color="#22c55e" />
+            </linearGradient>
+          </defs>
+          <path d="M19 2c-5.9 0-10.7 2.3-13.5 6.1C3.2 10.9 2 14 2 17.4c0 4.2 2.1 7.2 6.3 9 2.7 1.2 6.2 1.9 10.2 2.2 3.3.2 5.2.7 6.3 1.4 1.1.7 1.6 1.6 1.6 2.9 0 1.2-.5 2.2-1.6 2.9-1.6 1.1-3.9 1.7-6.8 1.7-4.7 0-8.6-1.5-11.6-4.4L2.1 32C5.9 36 11.2 38 18 38c4.4 0 8.1-.9 10.9-2.7 2.9-1.9 4.3-4.5 4.3-7.8 0-4.1-2-7.1-6-9-2.4-1.2-5.7-1.9-9.9-2.1-3.6-.2-5.7-.7-6.8-1.4-1.1-.7-1.7-1.6-1.7-2.9 0-1.1.5-2 1.4-2.7C12 8 14.5 7.4 17.6 7.4c4 0 7.2 1.1 9.7 3.3l4.4-4.4C28.4 3.5 24.2 2 19 2Z" fill="url(#g2)" />
+        </svg>
+        <span class="brand__name">Streamly</span>
       </div>
 
-      <section class="title-hero" id="titleHero">
-        <div class="title-hero__fade" aria-hidden="true"></div>
-        <div class="container title-hero__inner">
-          <p class="kicker" id="titleKicker">Contenuto</p>
-          <h1 class="title-h1" id="titleName">—</h1>
-          <p class="meta" id="titleMeta">—</p>
-          <p class="desc" id="titleDesc">—</p>
+      <div class="topbar__actions">
+        <div class="userpill" id="userPill" title="Profilo">
+          <span class="userpill__name" id="userName">—</span>
+          <button class="btn btn--ghost btn--sm" id="btnLogout" type="button">Logout</button>
+        </div>
 
-          <div class="title-actions">
-            <button class="btn btn--primary" id="playBtn" type="button">▶︎ Riproduci</button>
-            <button class="btn btn--ghost" id="trailerBtn" type="button">Trailer</button>
+        <button id="btnAdd" class="btn btn--primary" type="button">
+          <span class="btn__icon" aria-hidden="true">＋</span>
+          Aggiungi
+        </button>
 
-            <div class="seg" role="group" aria-label="Reazioni">
-              <button class="seg__btn" id="likeBtn" type="button" aria-label="Like">👍</button>
-              <button class="seg__btn" id="dislikeBtn" type="button" aria-label="Dislike">👎</button>
-            </div>
+        <button id="btnSettings" class="btn btn--ghost" type="button" aria-haspopup="dialog" aria-controls="settingsModal">
+          Impostazioni
+        </button>
+      </div>
+    </header>
 
-            <button class="btn btn--icon" id="myListBtn" type="button" aria-label="Aggiungi alla mia lista">＋</button>
+    <main class="wrap">
+      <section class="toolbar" aria-label="Filtri e ricerca">
+        <div class="toolbar__left">
+          <div class="seg" role="tablist" aria-label="Filtro contenuti">
+            <button class="seg__btn is-active" type="button" data-filter="all" role="tab" aria-selected="true">Tutto</button>
+            <button class="seg__btn" type="button" data-filter="watchlist" role="tab" aria-selected="false">Watchlist</button>
+            <button class="seg__btn" type="button" data-filter="liked" role="tab" aria-selected="false">Like</button>
           </div>
+        </div>
 
-          <div class="resume" id="resumeRow" hidden>
-            <span class="resume__label">Riprendi:</span>
-            <span class="resume__time" id="resumeTime">—</span>
+        <div class="toolbar__right">
+          <label class="search">
+            <span class="sr-only">Cerca</span>
+            <input id="searchInput" class="search__input" type="search" placeholder="Cerca in libreria…" autocomplete="off" />
+            <span class="search__icon" aria-hidden="true">⌕</span>
+          </label>
+
+          <div class="select">
+            <label class="sr-only" for="sortSelect">Ordina</label>
+            <select id="sortSelect" class="select__input">
+              <option value="recent">Più recenti</option>
+              <option value="title">Titolo (A→Z)</option>
+              <option value="likes">Più piaciuti</option>
+            </select>
           </div>
         </div>
       </section>
 
-      <section class="container title-main">
-        <div class="grid2">
-          <section class="panel">
-            <h2 class="panel__title">Dettagli</h2>
-            <div class="kv" id="detailsKv"></div>
+      <section class="grid" aria-label="Libreria" id="grid"></section>
 
-            <div class="chips" id="tagsChips"></div>
-
-            <div class="divider"></div>
-
-            <div id="episodesPanel" hidden>
-              <div class="panel__row">
-                <h3 class="panel__subtitle">Episodi</h3>
-                <div class="row-inline">
-                  <select id="seasonSelect" class="mini" aria-label="Seleziona stagione"></select>
-                  <button class="btn btn--ghost mini-btn" id="playSelectedEpisodeBtn" type="button">▶︎ Play selezionato</button>
-                </div>
-              </div>
-              <div class="episodes" id="episodesList"></div>
-              <p class="hint" id="episodesHint"></p>
-              <div class="divider"></div>
-            </div>
-
-            <h3 class="panel__subtitle">Simili</h3>
-            <div class="similar" id="similar"></div>
-          </section>
-
-          <aside class="panel">
-            <h2 class="panel__title">Poster</h2>
-            <div class="posterbox" id="posterBox">
-              <img id="titlePoster" alt="Locandina" />
-            </div>
-            <p class="hint" id="posterHint">—</p>
-          </aside>
+      <section class="empty" id="emptyState" hidden>
+        <div class="empty__card">
+          <h2 class="empty__title">Libreria vuota</h2>
+          <p class="empty__text">Aggiungi il primo contenuto (video + poster + trailer opzionale).</p>
+          <button class="btn btn--primary" type="button" id="btnAddEmpty">Aggiungi contenuto</button>
         </div>
       </section>
-    </section>
+    </main>
 
-    <!-- VIEW: STUDIO -->
-    <section class="view" id="viewStudio" aria-label="Studio">
-      <section class="container studio">
-        <div class="studio__head">
-          <div>
-            <h1 class="h1">Studio</h1>
-            <p class="subtle">
-              Aggiungi titoli velocemente: incolli un link video e Streamly capisce se è File / YouTube / Vimeo.
-              Poster e trailer puoi caricarli o metterli via URL.
-              <br/>
-              <strong>Serie:</strong> puoi creare stagioni/episodi con link per episodio.
-            </p>
-          </div>
+    <!-- Add Content Modal -->
+    <div class="modal" id="addModal" role="dialog" aria-modal="true" aria-labelledby="addTitle" hidden>
+      <div class="modal__backdrop" data-close="addModal"></div>
+      <div class="modal__panel" role="document">
+        <div class="modal__head">
+          <h2 id="addTitle" class="modal__title">Aggiungi contenuto</h2>
+          <button class="iconbtn" type="button" aria-label="Chiudi" data-close="addModal">✕</button>
+        </div>
 
-          <div class="studio__actions">
-            <button class="btn btn--ghost" id="exportBtn" type="button">⬇︎ Export JSON</button>
-            <label class="btn btn--ghost filebtn">
-              ⬆︎ Import JSON
-              <input id="importInput" type="file" accept="application/json" hidden>
+        <form id="addForm" class="form">
+          <div class="form__row">
+            <label class="field">
+              <span class="field__label">Titolo</span>
+              <input class="field__input" name="title" type="text" maxlength="80" required placeholder="Es. Il mio film" />
             </label>
-            <button class="btn btn--danger" id="wipeBtn" type="button">Reset libreria</button>
-          </div>
-        </div>
 
-        <div class="studio__grid">
-          <!-- FORM -->
-          <section class="panel panel--form">
-            <h2 class="panel__title" id="formTitle">Nuovo contenuto</h2>
-
-            <form id="contentForm" class="form" autocomplete="off">
-              <input type="hidden" id="editId" value=""/>
-
-              <div class="grid3">
-                <div class="field">
-                  <label for="titleInput">Titolo *</label>
-                  <input id="titleInput" type="text" placeholder="Es. Il mio film" required />
-                </div>
-
-                <div class="field">
-                  <label for="typeSelect">Tipo</label>
-                  <select id="typeSelect">
-                    <option value="movie">Film</option>
-                    <option value="series">Serie</option>
-                    <option value="video">Video</option>
-                  </select>
-                </div>
-
-                <div class="field">
-                  <label for="yearInput">Anno</label>
-                  <input id="yearInput" type="number" min="1900" max="2100" placeholder="2026" />
-                </div>
-              </div>
-
-              <div class="grid3">
-                <div class="field">
-                  <label for="ageInput">Rating età</label>
-                  <input id="ageInput" type="text" placeholder="Es. 16+, 13+, T" />
-                </div>
-
-                <div class="field">
-                  <label for="durationInput">Durata / episodi</label>
-                  <input id="durationInput" type="text" placeholder="Es. 1h 42m / 8 episodi" />
-                </div>
-
-                <div class="field">
-                  <label for="categoriesInput">Categorie (righe)</label>
-                  <input id="categoriesInput" type="text" placeholder="Es. Thriller, Consigliati, Documentari" />
-                  <p class="hint">Separate da virgola: crea righe in Browse.</p>
-                </div>
-              </div>
-
-              <div class="field">
-                <label for="descInput">Descrizione</label>
-                <textarea id="descInput" rows="4" placeholder="Breve sinossi…"></textarea>
-              </div>
-
-              <div class="field">
-                <label for="tagsInput">Tag</label>
-                <input id="tagsInput" type="text" placeholder="Es. Crime, Indie (separati da virgola)" />
-              </div>
-
-              <div class="divider"></div>
-
-              <div id="videoSourceBlock">
-                <h3 class="panel__subtitle">Sorgente video</h3>
-
-                <div class="field">
-                  <label for="videoUrlInput">Link video *</label>
-                  <input id="videoUrlInput" type="url" placeholder="https://.../video.mp4  oppure  https://youtu.be/...  oppure  https://vimeo.com/..." required />
-                  <p class="hint">
-                    Supporto: file diretto (mp4/webm), YouTube (unlisted ok), Vimeo.
-                    Se il video non parte, spesso è un problema del provider (range/hotlink).
-                  </p>
-                </div>
-              </div>
-
-              <div id="episodesEditor" hidden>
-                <div class="panel__row">
-                  <h3 class="panel__subtitle">Episodi (serie)</h3>
-                  <button class="btn btn--ghost mini-btn" id="addEpisodeBtn" type="button">＋ Aggiungi episodio</button>
-                </div>
-
-                <div class="episodes-editor" id="episodesEditorList"></div>
-
-                <p class="hint">
-                  Ogni episodio ha il suo link video (file/YouTube/Vimeo). I progressi vengono salvati per episodio.
-                </p>
-              </div>
-
-              <div class="divider"></div>
-
-              <h3 class="panel__subtitle">Media</h3>
-
-              <div class="grid2">
-                <div class="panel-lite">
-                  <p class="panel-lite__title">Locandina</p>
-
-                  <div class="field">
-                    <label class="radio">
-                      <input type="radio" name="posterMode" value="upload" checked />
-                      Upload immagine
-                    </label>
-                    <label class="radio">
-                      <input type="radio" name="posterMode" value="url" />
-                      URL immagine
-                    </label>
-                  </div>
-
-                  <div class="field" id="posterUploadWrap">
-                    <input id="posterFile" type="file" accept="image/*" />
-                    <p class="hint">Salvata in IndexedDB (locale). Consiglio JPG/WebP.</p>
-                  </div>
-
-                  <div class="field" id="posterUrlWrap" hidden>
-                    <input id="posterUrlInput" type="url" placeholder="https://.../poster.jpg" />
-                  </div>
-
-                  <div class="preview" id="posterPreviewWrap" hidden>
-                    <img id="posterPreview" alt="Anteprima poster" />
-                  </div>
-                </div>
-
-                <div class="panel-lite">
-                  <p class="panel-lite__title">Trailer</p>
-
-                  <div class="field">
-                    <label class="radio">
-                      <input type="radio" name="trailerMode" value="none" checked />
-                      Nessuno
-                    </label>
-                    <label class="radio">
-                      <input type="radio" name="trailerMode" value="upload" />
-                      Upload video
-                    </label>
-                    <label class="radio">
-                      <input type="radio" name="trailerMode" value="url" />
-                      URL video
-                    </label>
-                  </div>
-
-                  <div class="field" id="trailerUploadWrap" hidden>
-                    <input id="trailerFile" type="file" accept="video/*" />
-                    <p class="hint">Locale (IndexedDB). Evita file enormi.</p>
-                  </div>
-
-                  <div class="field" id="trailerUrlWrap" hidden>
-                    <input id="trailerUrlInput" type="url" placeholder="https://.../trailer.mp4  oppure YouTube/Vimeo" />
-                  </div>
-
-                  <div class="hint">Il trailer può andare anche in hover (solo se è file video diretto/locale).</div>
-                </div>
-              </div>
-
-              <div class="form__actions">
-                <button class="btn btn--primary" id="saveBtn" type="submit">Salva contenuto</button>
-                <button class="btn btn--ghost" id="cancelEditBtn" type="button" hidden">Annulla modifica</button>
-              </div>
-            </form>
-          </section>
-
-          <!-- LIBRARY -->
-          <section class="panel panel--list">
-            <div class="panel__row">
-              <h2 class="panel__title">Libreria</h2>
-              <span class="pill" id="libraryCount">0 contenuti</span>
-            </div>
-
-            <div class="empty" id="libraryEmpty">
-              <p class="empty__title">Nessun contenuto ancora</p>
-              <p class="empty__text">Compila il form e premi “Salva contenuto”.</p>
-            </div>
-
-            <div class="library" id="libraryList" aria-label="Lista contenuti"></div>
-          </section>
-        </div>
-      </section>
-    </section>
-
-    <!-- VIEW: SETTINGS -->
-    <section class="view" id="viewSettings" aria-label="Impostazioni">
-      <section class="container settings">
-        <h1 class="h1">Impostazioni</h1>
-
-        <div class="panel">
-          <h2 class="panel__title">Storage locale</h2>
-          <p class="subtle">
-            Catalogo globale (tutti i profili). Ogni profilo salva separatamente progressi, reazioni e lista.
-            Export/Import fa backup del JSON (gli upload locali non entrano nel JSON).
-          </p>
-          <div class="kv">
-            <div class="kv__row"><span>Catalogo</span><strong id="kvCatalog">—</strong></div>
-            <div class="kv__row"><span>Profili</span><strong id="kvProfiles">—</strong></div>
-            <div class="kv__row"><span>Progressi (profilo attivo)</span><strong id="kvProgress">—</strong></div>
-            <div class="kv__row"><span>Reazioni (profilo attivo)</span><strong id="kvReactions">—</strong></div>
-            <div class="kv__row"><span>Lista (profilo attivo)</span><strong id="kvMyList">—</strong></div>
-            <div class="kv__row"><span>Assets (IndexedDB)</span><strong id="kvAssets">—</strong></div>
-          </div>
-        </div>
-      </section>
-    </section>
-  </main>
-
-  <!-- PLAYER MODAL -->
-  <div class="modal" id="playerModal" aria-hidden="true">
-    <div class="modal__backdrop" data-close="true"></div>
-
-    <div class="modal__panel" id="playerPanel" role="dialog" aria-modal="true" aria-label="Player">
-      <div class="modal__bar">
-        <div class="modal__title">
-          <strong id="playerTitle">—</strong>
-          <span class="muted" id="playerType">—</span>
-        </div>
-
-        <div class="modal__tools" aria-label="Controlli player">
-          <button class="tool" id="partyBtn" type="button" aria-pressed="false" title="Watch Party">👥</button>
-          <button class="tool" id="cinemaBtn" type="button" aria-pressed="false" title="Cinema mode">🎬</button>
-          <button class="tool" id="pipBtn" type="button" title="Picture-in-Picture">▣</button>
-          <button class="tool" id="fsBtn" type="button" title="Fullscreen">⤢</button>
-          <button class="tool tool--close" id="playerClose" type="button" aria-label="Chiudi">✕</button>
-        </div>
-      </div>
-
-      <div class="playerwrap" id="playerWrap">
-        <video id="player" controls playsinline preload="metadata"></video>
-        <iframe id="playerFrame" title="Embedded player" allow="autoplay; fullscreen; picture-in-picture" loading="lazy"></iframe>
-      </div>
-
-      <div class="party" id="partyPanel" hidden>
-        <div class="party__head">
-          <strong>Watch Party</strong>
-          <span class="muted" id="partyStatus">Non connesso</span>
-        </div>
-
-        <div class="party__grid">
-          <div class="party__box">
-            <div class="party__row">
-              <span class="pill">Host</span>
-              <button class="btn btn--ghost mini-btn" id="hostCreateBtn" type="button">Crea stanza</button>
-            </div>
-            <p class="hint">Crea un “codice offerta”, mandalo all’altra persona.</p>
-            <textarea id="hostOffer" rows="6" class="mono" placeholder="Offerta (da copiare)" readonly></textarea>
-            <div class="row-inline">
-              <button class="btn btn--ghost mini-btn" id="copyOfferBtn" type="button">Copia</button>
-              <button class="btn btn--ghost mini-btn" id="clearPartyBtn" type="button">Reset</button>
-            </div>
-
-            <div class="divider"></div>
-
-            <p class="hint">Incolla qui la risposta che ti rimanda l’altra persona:</p>
-            <textarea id="hostAnswer" rows="6" class="mono" placeholder="Incolla risposta (Answer) qui"></textarea>
-            <button class="btn btn--primary mini-btn" id="hostApplyAnswerBtn" type="button">Connetti</button>
+            <label class="field">
+              <span class="field__label">Tipo</span>
+              <select class="field__input" name="kind">
+                <option value="movie">Film</option>
+                <option value="series">Serie</option>
+                <option value="other">Altro</option>
+              </select>
+            </label>
           </div>
 
-          <div class="party__box">
-            <div class="party__row">
-              <span class="pill">Guest</span>
-              <span class="muted">Entra</span>
-            </div>
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">Poster (upload)</span>
+              <input class="field__input" name="posterFile" type="file" accept="image/*" required />
+            </label>
+          </div>
 
-            <p class="hint">Incolla l’offerta dell’host e genera la risposta:</p>
-            <textarea id="guestOffer" rows="6" class="mono" placeholder="Incolla Offerta (Offer) qui"></textarea>
-            <button class="btn btn--primary mini-btn" id="guestCreateAnswerBtn" type="button">Genera risposta</button>
+          <fieldset class="fieldset">
+            <legend class="fieldset__legend">Video principale</legend>
 
-            <div class="divider"></div>
-
-            <p class="hint">Copia la risposta e rimandala all’host:</p>
-            <textarea id="guestAnswer" rows="6" class="mono" placeholder="Risposta (da copiare)" readonly></textarea>
-            <div class="row-inline">
-              <button class="btn btn--ghost mini-btn" id="copyAnswerBtn" type="button">Copia</button>
-              <label class="toggle">
-                <input id="followHostToggle" type="checkbox" checked />
-                <span>Segui host</span>
+            <div class="form__row">
+              <label class="field field--wide">
+                <span class="field__label">URL</span>
+                <input class="field__input" name="videoUrl" type="url" placeholder="mp4/webm oppure link YouTube/Vimeo" required />
               </label>
-              <button class="btn btn--ghost mini-btn" id="syncNowBtn" type="button">Sync now</button>
             </div>
 
-            <p class="hint">
-              Watch Party funziona solo su video riprodotti con il player nativo (link file diretto o trailer locale).
-              Su YouTube/Vimeo embed non sincronizza.
-            </p>
+            <div class="hint">
+              Supporto: <strong>direct mp4/webm</strong> + <strong>YouTube/Vimeo embed</strong> (se consentito).
+            </div>
+          </fieldset>
+
+          <fieldset class="fieldset">
+            <legend class="fieldset__legend">Trailer (opzionale)</legend>
+
+            <div class="form__row">
+              <label class="field field--wide">
+                <span class="field__label">Trailer URL</span>
+                <input class="field__input" name="trailerUrl" type="url" placeholder="Lascia vuoto se non serve" />
+              </label>
+            </div>
+          </fieldset>
+
+          <div class="form__actions">
+            <button class="btn" type="button" data-close="addModal">Annulla</button>
+            <button class="btn btn--primary" type="submit">Salva</button>
+          </div>
+
+          <p class="fineprint">
+            Salvataggio su server: poster + libreria per profilo.
+          </p>
+        </form>
+      </div>
+    </div>
+
+    <!-- Details Modal -->
+    <div class="modal" id="detailsModal" role="dialog" aria-modal="true" aria-labelledby="detailsTitle" hidden>
+      <div class="modal__backdrop" data-close="detailsModal"></div>
+      <div class="modal__panel modal__panel--details" role="document">
+        <div class="modal__head">
+          <h2 id="detailsTitle" class="modal__title">Dettagli</h2>
+          <button class="iconbtn" type="button" aria-label="Chiudi" data-close="detailsModal">✕</button>
+        </div>
+
+        <div class="details">
+          <div class="details__poster">
+            <img id="detailsPoster" alt="" />
+          </div>
+
+          <div class="details__body">
+            <div class="details__meta">
+              <div class="details__name" id="detailsName">—</div>
+              <div class="details__chips" id="detailsChips"></div>
+            </div>
+
+            <div class="details__actions">
+              <button id="btnPlay" class="btn btn--primary" type="button">Play</button>
+              <button id="btnTrailer" class="btn btn--ghost" type="button" hidden>Trailer</button>
+
+              <span class="spacer"></span>
+
+              <button id="btnWatchlist" class="btn btn--ghost" type="button">Watchlist</button>
+
+              <div class="btnrow">
+                <button id="btnLike" class="btn btn--ghost" type="button" aria-pressed="false">👍</button>
+                <button id="btnDislike" class="btn btn--ghost" type="button" aria-pressed="false">👎</button>
+              </div>
+
+              <button id="btnDelete" class="btn btn--danger" type="button">Elimina</button>
+            </div>
+
+            <div class="details__links">
+              <div class="kv">
+                <div class="kv__k">Video</div>
+                <div class="kv__v" id="detailsVideo">—</div>
+              </div>
+              <div class="kv">
+                <div class="kv__k">Trailer</div>
+                <div class="kv__v" id="detailsTrailer">—</div>
+              </div>
+            </div>
+
+            <div class="hint" id="embedHint" hidden>
+              Nota: sync perfetto è garantito con video direct mp4/webm. YouTube/Vimeo: best-effort.
+            </div>
           </div>
         </div>
       </div>
-
-      <p class="hint pad" id="playerHint"></p>
     </div>
+
+    <!-- Player Modal -->
+    <div class="modal" id="playerModal" role="dialog" aria-modal="true" aria-label="Player" hidden>
+      <div class="modal__backdrop" data-close="playerModal"></div>
+      <div class="modal__panel modal__panel--player" role="document">
+        <div class="playerTop">
+          <div class="playerTop__left">
+            <div class="playerTop__title" id="playerTitle">—</div>
+            <div class="playerTop__sub" id="playerSub">—</div>
+          </div>
+
+          <div class="playerTop__right">
+            <button id="btnParty" class="btn btn--ghost" type="button" aria-haspopup="dialog" aria-controls="partyModal">Watch Party</button>
+            <button id="btnCinema" class="btn btn--ghost" type="button" aria-pressed="false">Cinema</button>
+            <button id="btnFs" class="btn btn--ghost" type="button">Fullscreen</button>
+            <button class="iconbtn" type="button" aria-label="Chiudi player" data-close="playerModal">✕</button>
+          </div>
+        </div>
+
+        <div class="playerStage" id="playerStage"></div>
+
+        <div class="playerFoot">
+          <div class="playerFoot__left">
+            <button id="btnBackDetails" class="btn btn--ghost" type="button">Dettagli</button>
+          </div>
+          <div class="playerFoot__right">
+            <span class="pill" id="partyStatus" hidden>Party: off</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div class="modal" id="settingsModal" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" hidden>
+      <div class="modal__backdrop" data-close="settingsModal"></div>
+      <div class="modal__panel" role="document">
+        <div class="modal__head">
+          <h2 id="settingsTitle" class="modal__title">Impostazioni</h2>
+          <button class="iconbtn" type="button" aria-label="Chiudi" data-close="settingsModal">✕</button>
+        </div>
+
+        <div class="form">
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">API Base URL</span>
+              <input class="field__input" id="apiBase" type="url" placeholder="https://tuo-server.example" />
+            </label>
+          </div>
+
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">Modalità Watch Party predefinita</span>
+              <select class="field__input" id="partyDefaultMode">
+                <option value="off">Off</option>
+                <option value="local">Local (BroadcastChannel)</option>
+                <option value="remote">Remote (WebSocket)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">WebSocket URL (remote)</span>
+              <input class="field__input" id="wsUrl" type="url" placeholder="wss://tuo-server.example/ws" />
+            </label>
+          </div>
+
+          <div class="form__actions">
+            <button class="btn btn--primary" id="btnSaveSettings" type="button">Salva</button>
+          </div>
+
+          <p class="fineprint">
+            Watch Party remoto: due PC distanti, stessa Room, stesso WS.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Party Modal -->
+    <div class="modal" id="partyModal" role="dialog" aria-modal="true" aria-labelledby="partyTitle" hidden>
+      <div class="modal__backdrop" data-close="partyModal"></div>
+      <div class="modal__panel" role="document">
+        <div class="modal__head">
+          <h2 id="partyTitle" class="modal__title">Watch Party</h2>
+          <button class="iconbtn" type="button" aria-label="Chiudi" data-close="partyModal">✕</button>
+        </div>
+
+        <div class="form">
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">Modalità</span>
+              <select class="field__input" id="partyMode">
+                <option value="local">Local (BroadcastChannel)</option>
+                <option value="remote">Remote (WebSocket)</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">Room</span>
+              <input class="field__input" id="partyRoom" type="text" placeholder="es. serata-film" maxlength="48" />
+            </label>
+          </div>
+
+          <div class="form__row" id="wsRow">
+            <label class="field field--wide">
+              <span class="field__label">WebSocket URL</span>
+              <input class="field__input" id="partyWsUrl" type="url" placeholder="wss://tuo-server.example/ws" />
+            </label>
+          </div>
+
+          <div class="form__actions">
+            <button class="btn" id="btnPartyLeave" type="button" hidden>Esci</button>
+            <button class="btn btn--primary" id="btnPartyJoin" type="button">Avvia / Entra</button>
+            <button class="btn btn--ghost" id="btnPartyCopy" type="button" hidden>Copia invito</button>
+          </div>
+
+          <p class="fineprint" id="partyFineprint">
+            Consiglio: per sync perfetto usa video direct mp4/webm.
+          </p>
+
+          <div class="partyBox" id="partyBox" hidden>
+            <div class="partyBox__row"><span class="muted">Stato:</span> <span id="partyBoxState">—</span></div>
+            <div class="partyBox__row"><span class="muted">Room:</span> <span id="partyBoxRoom">—</span></div>
+            <div class="partyBox__row"><span class="muted">Modalità:</span> <span id="partyBoxMode">—</span></div>
+            <div class="partyBox__row"><span class="muted">Ruolo:</span> <span id="partyBoxRole">—</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <template id="tplCard">
+      <button class="card" type="button">
+        <div class="card__poster">
+          <img alt="" loading="lazy" decoding="async" />
+        </div>
+        <div class="card__overlay">
+          <div class="card__top">
+            <span class="badge" data-badge="kind">Film</span>
+            <span class="chip" data-chip="watchlist" hidden title="In watchlist" aria-label="In watchlist">★</span>
+          </div>
+          <div class="card__bottom">
+            <div class="card__title" data-title>—</div>
+            <div class="card__meta">
+              <span class="muted" data-meta>—</span>
+              <span class="chip chip--like" data-chip="liked" hidden title="Hai messo like" aria-label="Hai messo like">👍</span>
+            </div>
+          </div>
+        </div>
+      </button>
+    </template>
   </div>
 
-  <script src="./script.js"></script>
+  <script src="script.js"></script>
 </body>
 </html>
