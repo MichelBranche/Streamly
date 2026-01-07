@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Streamly — Private Streaming UI</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+
+<body>
+  <a class="skip" href="#main">Vai al contenuto</a>
+  <div class="top-fade" aria-hidden="true"></div>
+
+  <header class="appbar">
+    <div class="container appbar__inner">
+      <a class="brand" href="#browse" aria-label="Streamly Home">
+        <span class="brand__logo">Streamly</span>
+        <span class="brand__badge">private</span>
+      </a>
+
+      <nav class="tabs" aria-label="Sezioni">
+        <a class="tab" href="#browse" data-tab="browse">Browse</a>
+        <a class="tab" href="#studio" data-tab="studio">Studio</a>
+        <a class="tab" href="#settings" data-tab="settings">Impostazioni</a>
+      </nav>
+
+      <div class="right">
+        <div class="search" id="searchWrap">
+          <button class="icon-btn" id="searchBtn" type="button" aria-label="Apri ricerca">
+            <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill="currentColor" d="M10 18a8 8 0 1 1 5.293-14.01A8 8 0 0 1 10 18Zm0-2a6 6 0 1 0-4.243-1.757A5.96 5.96 0 0 0 10 16Zm9.707 5.707-5.2-5.2 1.414-1.414 5.2 5.2-1.414 1.414Z"/>
+            </svg>
+          </button>
+          <label class="sr-only" for="searchInput">Cerca</label>
+          <input id="searchInput" class="search__input" type="text" placeholder="Cerca titoli, tag…" autocomplete="off"/>
+        </div>
+
+        <div class="profile-wrap" id="profileWrap">
+          <button class="profile" id="profileBtn" type="button" aria-haspopup="true" aria-expanded="false">
+            <span class="profile__avatar" aria-hidden="true" id="profileAvatar">S</span>
+            <span class="profile__name" id="profileName">Streamly</span>
+            <span class="profile__caret" aria-hidden="true">▾</span>
+          </button>
+
+          <div class="popover" id="profilePopover" role="menu" aria-label="Profili" hidden>
+            <div class="popover__head">
+              <strong>Profili</strong>
+              <span class="muted" id="profilesHint">Locale</span>
+            </div>
+
+            <div class="profiles" id="profilesList"></div>
+
+            <div class="divider"></div>
+
+            <div class="field">
+              <label for="newProfileName">Crea profilo</label>
+              <div class="row-inline">
+                <input id="newProfileName" type="text" placeholder="Nome (es. Julia)" />
+                <button class="btn btn--primary" id="addProfileBtn" type="button">＋</button>
+              </div>
+              <p class="hint">Ogni profilo ha like/dislike, lista e progressi separati.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <!-- VIEW: BROWSE -->
+    <section class="view" id="viewBrowse" aria-label="Browse">
+      <section class="hero" id="hero">
+        <div class="container hero__inner">
+          <div class="hero__content">
+            <p class="hero__eyebrow" id="heroEyebrow">Streamly Private</p>
+            <h1 class="hero__title" id="heroTitle">Aggiungi il tuo primo titolo</h1>
+            <p class="hero__meta" id="heroMeta">Studio → Nuovo contenuto</p>
+            <p class="hero__desc" id="heroDesc">
+              Incolla un link video (file diretto / YouTube / Vimeo), carica poster e trailer, e sei live.
+            </p>
+
+            <div class="hero__cta">
+              <button class="btn btn--primary" id="heroGoStudioBtn" type="button">＋ Crea contenuto</button>
+              <button class="btn btn--ghost" id="heroLearnBtn" type="button">ⓘ Suggerimenti link</button>
+            </div>
+          </div>
+        </div>
+        <div class="hero__fade" aria-hidden="true"></div>
+      </section>
+
+      <section class="container rows" id="rowsRoot" aria-label="Catalogo"></section>
+    </section>
+
+    <!-- VIEW: TITLE -->
+    <section class="view" id="viewTitle" aria-label="Dettagli titolo">
+      <div class="titlebar">
+        <div class="container titlebar__inner">
+          <button class="back" id="backBtn" type="button" aria-label="Torna indietro">←</button>
+          <div class="titlebar__grow"></div>
+          <button class="btn btn--ghost" id="editTitleBtn" type="button">✎ Modifica</button>
+          <button class="btn btn--ghost" id="deleteTitleBtn" type="button">🗑 Elimina</button>
+        </div>
+      </div>
+
+      <section class="title-hero" id="titleHero">
+        <div class="title-hero__fade" aria-hidden="true"></div>
+        <div class="container title-hero__inner">
+          <p class="kicker" id="titleKicker">Contenuto</p>
+          <h1 class="title-h1" id="titleName">—</h1>
+          <p class="meta" id="titleMeta">—</p>
+          <p class="desc" id="titleDesc">—</p>
+
+          <div class="title-actions">
+            <button class="btn btn--primary" id="playBtn" type="button">▶︎ Riproduci</button>
+            <button class="btn btn--ghost" id="trailerBtn" type="button">Trailer</button>
+
+            <div class="seg" role="group" aria-label="Reazioni">
+              <button class="seg__btn" id="likeBtn" type="button" aria-label="Like">👍</button>
+              <button class="seg__btn" id="dislikeBtn" type="button" aria-label="Dislike">👎</button>
+            </div>
+
+            <button class="btn btn--icon" id="myListBtn" type="button" aria-label="Aggiungi alla mia lista">＋</button>
+          </div>
+
+          <div class="resume" id="resumeRow" hidden>
+            <span class="resume__label">Riprendi:</span>
+            <span class="resume__time" id="resumeTime">—</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="container title-main">
+        <div class="grid2">
+          <section class="panel">
+            <h2 class="panel__title">Dettagli</h2>
+            <div class="kv" id="detailsKv"></div>
+
+            <div class="chips" id="tagsChips"></div>
+
+            <div class="divider"></div>
+
+            <div id="episodesPanel" hidden>
+              <div class="panel__row">
+                <h3 class="panel__subtitle">Episodi</h3>
+                <div class="row-inline">
+                  <select id="seasonSelect" class="mini" aria-label="Seleziona stagione"></select>
+                  <button class="btn btn--ghost mini-btn" id="playSelectedEpisodeBtn" type="button">▶︎ Play selezionato</button>
+                </div>
+              </div>
+              <div class="episodes" id="episodesList"></div>
+              <p class="hint" id="episodesHint"></p>
+              <div class="divider"></div>
+            </div>
+
+            <h3 class="panel__subtitle">Simili</h3>
+            <div class="similar" id="similar"></div>
+          </section>
+
+          <aside class="panel">
+            <h2 class="panel__title">Poster</h2>
+            <div class="posterbox" id="posterBox">
+              <img id="titlePoster" alt="Locandina" />
+            </div>
+            <p class="hint" id="posterHint">—</p>
+          </aside>
+        </div>
+      </section>
+    </section>
+
+    <!-- VIEW: STUDIO -->
+    <section class="view" id="viewStudio" aria-label="Studio">
+      <section class="container studio">
+        <div class="studio__head">
+          <div>
+            <h1 class="h1">Studio</h1>
+            <p class="subtle">
+              Aggiungi titoli velocemente: incolli un link video e Streamly capisce se è File / YouTube / Vimeo.
+              Poster e trailer puoi caricarli o metterli via URL.
+              <br/>
+              <strong>Serie:</strong> puoi creare stagioni/episodi con link per episodio.
+            </p>
+          </div>
+
+          <div class="studio__actions">
+            <button class="btn btn--ghost" id="exportBtn" type="button">⬇︎ Export JSON</button>
+            <label class="btn btn--ghost filebtn">
+              ⬆︎ Import JSON
+              <input id="importInput" type="file" accept="application/json" hidden>
+            </label>
+            <button class="btn btn--danger" id="wipeBtn" type="button">Reset libreria</button>
+          </div>
+        </div>
+
+        <div class="studio__grid">
+          <!-- FORM -->
+          <section class="panel panel--form">
+            <h2 class="panel__title" id="formTitle">Nuovo contenuto</h2>
+
+            <form id="contentForm" class="form" autocomplete="off">
+              <input type="hidden" id="editId" value=""/>
+
+              <div class="grid3">
+                <div class="field">
+                  <label for="titleInput">Titolo *</label>
+                  <input id="titleInput" type="text" placeholder="Es. Il mio film" required />
+                </div>
+
+                <div class="field">
+                  <label for="typeSelect">Tipo</label>
+                  <select id="typeSelect">
+                    <option value="movie">Film</option>
+                    <option value="series">Serie</option>
+                    <option value="video">Video</option>
+                  </select>
+                </div>
+
+                <div class="field">
+                  <label for="yearInput">Anno</label>
+                  <input id="yearInput" type="number" min="1900" max="2100" placeholder="2026" />
+                </div>
+              </div>
+
+              <div class="grid3">
+                <div class="field">
+                  <label for="ageInput">Rating età</label>
+                  <input id="ageInput" type="text" placeholder="Es. 16+, 13+, T" />
+                </div>
+
+                <div class="field">
+                  <label for="durationInput">Durata / episodi</label>
+                  <input id="durationInput" type="text" placeholder="Es. 1h 42m / 8 episodi" />
+                </div>
+
+                <div class="field">
+                  <label for="categoriesInput">Categorie (righe)</label>
+                  <input id="categoriesInput" type="text" placeholder="Es. Thriller, Consigliati, Documentari" />
+                  <p class="hint">Separate da virgola: crea righe in Browse.</p>
+                </div>
+              </div>
+
+              <div class="field">
+                <label for="descInput">Descrizione</label>
+                <textarea id="descInput" rows="4" placeholder="Breve sinossi…"></textarea>
+              </div>
+
+              <div class="field">
+                <label for="tagsInput">Tag</label>
+                <input id="tagsInput" type="text" placeholder="Es. Crime, Indie (separati da virgola)" />
+              </div>
+
+              <div class="divider"></div>
+
+              <div id="videoSourceBlock">
+                <h3 class="panel__subtitle">Sorgente video</h3>
+
+                <div class="field">
+                  <label for="videoUrlInput">Link video *</label>
+                  <input id="videoUrlInput" type="url" placeholder="https://.../video.mp4  oppure  https://youtu.be/...  oppure  https://vimeo.com/..." required />
+                  <p class="hint">
+                    Supporto: file diretto (mp4/webm), YouTube (unlisted ok), Vimeo.
+                    Se il video non parte, spesso è un problema del provider (range/hotlink).
+                  </p>
+                </div>
+              </div>
+
+              <div id="episodesEditor" hidden>
+                <div class="panel__row">
+                  <h3 class="panel__subtitle">Episodi (serie)</h3>
+                  <button class="btn btn--ghost mini-btn" id="addEpisodeBtn" type="button">＋ Aggiungi episodio</button>
+                </div>
+
+                <div class="episodes-editor" id="episodesEditorList"></div>
+
+                <p class="hint">
+                  Ogni episodio ha il suo link video (file/YouTube/Vimeo). I progressi vengono salvati per episodio.
+                </p>
+              </div>
+
+              <div class="divider"></div>
+
+              <h3 class="panel__subtitle">Media</h3>
+
+              <div class="grid2">
+                <div class="panel-lite">
+                  <p class="panel-lite__title">Locandina</p>
+
+                  <div class="field">
+                    <label class="radio">
+                      <input type="radio" name="posterMode" value="upload" checked />
+                      Upload immagine
+                    </label>
+                    <label class="radio">
+                      <input type="radio" name="posterMode" value="url" />
+                      URL immagine
+                    </label>
+                  </div>
+
+                  <div class="field" id="posterUploadWrap">
+                    <input id="posterFile" type="file" accept="image/*" />
+                    <p class="hint">Salvata in IndexedDB (locale). Consiglio JPG/WebP.</p>
+                  </div>
+
+                  <div class="field" id="posterUrlWrap" hidden>
+                    <input id="posterUrlInput" type="url" placeholder="https://.../poster.jpg" />
+                  </div>
+
+                  <div class="preview" id="posterPreviewWrap" hidden>
+                    <img id="posterPreview" alt="Anteprima poster" />
+                  </div>
+                </div>
+
+                <div class="panel-lite">
+                  <p class="panel-lite__title">Trailer</p>
+
+                  <div class="field">
+                    <label class="radio">
+                      <input type="radio" name="trailerMode" value="none" checked />
+                      Nessuno
+                    </label>
+                    <label class="radio">
+                      <input type="radio" name="trailerMode" value="upload" />
+                      Upload video
+                    </label>
+                    <label class="radio">
+                      <input type="radio" name="trailerMode" value="url" />
+                      URL video
+                    </label>
+                  </div>
+
+                  <div class="field" id="trailerUploadWrap" hidden>
+                    <input id="trailerFile" type="file" accept="video/*" />
+                    <p class="hint">Locale (IndexedDB). Evita file enormi.</p>
+                  </div>
+
+                  <div class="field" id="trailerUrlWrap" hidden>
+                    <input id="trailerUrlInput" type="url" placeholder="https://.../trailer.mp4  oppure YouTube/Vimeo" />
+                  </div>
+
+                  <div class="hint">Il trailer può andare anche in hover (solo se è file video diretto/locale).</div>
+                </div>
+              </div>
+
+              <div class="form__actions">
+                <button class="btn btn--primary" id="saveBtn" type="submit">Salva contenuto</button>
+                <button class="btn btn--ghost" id="cancelEditBtn" type="button" hidden">Annulla modifica</button>
+              </div>
+            </form>
+          </section>
+
+          <!-- LIBRARY -->
+          <section class="panel panel--list">
+            <div class="panel__row">
+              <h2 class="panel__title">Libreria</h2>
+              <span class="pill" id="libraryCount">0 contenuti</span>
+            </div>
+
+            <div class="empty" id="libraryEmpty">
+              <p class="empty__title">Nessun contenuto ancora</p>
+              <p class="empty__text">Compila il form e premi “Salva contenuto”.</p>
+            </div>
+
+            <div class="library" id="libraryList" aria-label="Lista contenuti"></div>
+          </section>
+        </div>
+      </section>
+    </section>
+
+    <!-- VIEW: SETTINGS -->
+    <section class="view" id="viewSettings" aria-label="Impostazioni">
+      <section class="container settings">
+        <h1 class="h1">Impostazioni</h1>
+
+        <div class="panel">
+          <h2 class="panel__title">Storage locale</h2>
+          <p class="subtle">
+            Catalogo globale (tutti i profili). Ogni profilo salva separatamente progressi, reazioni e lista.
+            Export/Import fa backup del JSON (gli upload locali non entrano nel JSON).
+          </p>
+          <div class="kv">
+            <div class="kv__row"><span>Catalogo</span><strong id="kvCatalog">—</strong></div>
+            <div class="kv__row"><span>Profili</span><strong id="kvProfiles">—</strong></div>
+            <div class="kv__row"><span>Progressi (profilo attivo)</span><strong id="kvProgress">—</strong></div>
+            <div class="kv__row"><span>Reazioni (profilo attivo)</span><strong id="kvReactions">—</strong></div>
+            <div class="kv__row"><span>Lista (profilo attivo)</span><strong id="kvMyList">—</strong></div>
+            <div class="kv__row"><span>Assets (IndexedDB)</span><strong id="kvAssets">—</strong></div>
+          </div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- PLAYER MODAL -->
+  <div class="modal" id="playerModal" aria-hidden="true">
+    <div class="modal__backdrop" data-close="true"></div>
+
+    <div class="modal__panel" id="playerPanel" role="dialog" aria-modal="true" aria-label="Player">
+      <div class="modal__bar">
+        <div class="modal__title">
+          <strong id="playerTitle">—</strong>
+          <span class="muted" id="playerType">—</span>
+        </div>
+
+        <div class="modal__tools" aria-label="Controlli player">
+          <button class="tool" id="partyBtn" type="button" aria-pressed="false" title="Watch Party">👥</button>
+          <button class="tool" id="cinemaBtn" type="button" aria-pressed="false" title="Cinema mode">🎬</button>
+          <button class="tool" id="pipBtn" type="button" title="Picture-in-Picture">▣</button>
+          <button class="tool" id="fsBtn" type="button" title="Fullscreen">⤢</button>
+          <button class="tool tool--close" id="playerClose" type="button" aria-label="Chiudi">✕</button>
+        </div>
+      </div>
+
+      <div class="playerwrap" id="playerWrap">
+        <video id="player" controls playsinline preload="metadata"></video>
+        <iframe id="playerFrame" title="Embedded player" allow="autoplay; fullscreen; picture-in-picture" loading="lazy"></iframe>
+      </div>
+
+      <div class="party" id="partyPanel" hidden>
+        <div class="party__head">
+          <strong>Watch Party</strong>
+          <span class="muted" id="partyStatus">Non connesso</span>
+        </div>
+
+        <div class="party__grid">
+          <div class="party__box">
+            <div class="party__row">
+              <span class="pill">Host</span>
+              <button class="btn btn--ghost mini-btn" id="hostCreateBtn" type="button">Crea stanza</button>
+            </div>
+            <p class="hint">Crea un “codice offerta”, mandalo all’altra persona.</p>
+            <textarea id="hostOffer" rows="6" class="mono" placeholder="Offerta (da copiare)" readonly></textarea>
+            <div class="row-inline">
+              <button class="btn btn--ghost mini-btn" id="copyOfferBtn" type="button">Copia</button>
+              <button class="btn btn--ghost mini-btn" id="clearPartyBtn" type="button">Reset</button>
+            </div>
+
+            <div class="divider"></div>
+
+            <p class="hint">Incolla qui la risposta che ti rimanda l’altra persona:</p>
+            <textarea id="hostAnswer" rows="6" class="mono" placeholder="Incolla risposta (Answer) qui"></textarea>
+            <button class="btn btn--primary mini-btn" id="hostApplyAnswerBtn" type="button">Connetti</button>
+          </div>
+
+          <div class="party__box">
+            <div class="party__row">
+              <span class="pill">Guest</span>
+              <span class="muted">Entra</span>
+            </div>
+
+            <p class="hint">Incolla l’offerta dell’host e genera la risposta:</p>
+            <textarea id="guestOffer" rows="6" class="mono" placeholder="Incolla Offerta (Offer) qui"></textarea>
+            <button class="btn btn--primary mini-btn" id="guestCreateAnswerBtn" type="button">Genera risposta</button>
+
+            <div class="divider"></div>
+
+            <p class="hint">Copia la risposta e rimandala all’host:</p>
+            <textarea id="guestAnswer" rows="6" class="mono" placeholder="Risposta (da copiare)" readonly></textarea>
+            <div class="row-inline">
+              <button class="btn btn--ghost mini-btn" id="copyAnswerBtn" type="button">Copia</button>
+              <label class="toggle">
+                <input id="followHostToggle" type="checkbox" checked />
+                <span>Segui host</span>
+              </label>
+              <button class="btn btn--ghost mini-btn" id="syncNowBtn" type="button">Sync now</button>
+            </div>
+
+            <p class="hint">
+              Watch Party funziona solo su video riprodotti con il player nativo (link file diretto o trailer locale).
+              Su YouTube/Vimeo embed non sincronizza.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <p class="hint pad" id="playerHint"></p>
+    </div>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>
