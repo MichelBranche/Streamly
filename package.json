@@ -1,0 +1,13 @@
+{
+  "name": "streamly-backend",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "busboy": "^1.6.0",
+    "ws": "^8.18.0"
+  }
+}
