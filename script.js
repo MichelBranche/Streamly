@@ -296,6 +296,21 @@
     els.authNotice.classList.toggle("is-error", kind === "error");
   };
 
+  const setBusy = (formEl, busy, label = "") => {
+    if (!formEl) return () => {};
+    const btn = formEl.querySelector('button[type="submit"]');
+    if (!btn) return () => {};
+    const prevDisabled = btn.disabled;
+    const prevText = btn.textContent;
+    btn.disabled = !!busy;
+    if (label) btn.textContent = label;
+    return () => {
+      btn.disabled = prevDisabled;
+      btn.textContent = prevText;
+    };
+  };
+
+
   const showAuth = () => {
     // stop sync + close player/modals
     try { partyStop(); } catch {}
@@ -335,39 +350,77 @@
 
   /* ------------------------------ API ------------------------------ */
   const apiFetch = async (path, opts = {}) => {
-    const apiBase = normalizeBase(settings.apiBase || location.origin);
+    const apiBase = normalizeBase(settings.apiBase || "");
+    if (!apiBase) {
+      const e = new Error("API Base URL mancante. Incolla l’URL HTTPS del backend (Render).");
+      e.status = 0;
+      throw e;
+    }
+
     const url = resolveUrl(apiBase, path.startsWith("/") ? path : `/${path}`);
 
     const headers = new Headers(opts.headers || {});
     headers.set("Accept", "application/json");
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
+    // timeout support (Render Free può essere lento al primo colpo)
+    const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 65000;
+    const controller = opts.signal ? null : new AbortController();
+    const signal = opts.signal || controller?.signal;
+
     const init = {
       ...opts,
       headers,
+      signal,
     };
 
-    const res = await fetch(url, init);
+    // fetch non conosce timeoutMs: rimuoviamolo
+    try { delete init.timeoutMs; } catch {}
+
+    let t = null;
+    if (controller && timeoutMs > 0) {
+      t = setTimeout(() => {
+        try { controller.abort(); } catch {}
+      }, timeoutMs);
+    }
+
+    let res;
+    try {
+      res = await fetch(url, init);
+    } catch (err) {
+      const isAbort = err?.name === "AbortError";
+      const e = new Error(
+        isAbort
+          ? "Timeout: il backend non ha risposto (Render Free può impiegare ~50s se era in sleep). Riprova."
+          : "Errore di rete: impossibile contattare il backend. Controlla API Base URL (deve essere HTTPS) e riprova."
+      );
+      e.status = 0;
+      e.cause = err;
+      e.url = url;
+      throw e;
+    } finally {
+      if (t) clearTimeout(t);
+    }
+
     const isJson = (res.headers.get("content-type") || "").includes("application/json");
     const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
 
-    if (res.status === 401) {
-      // session invalid
-      token = "";
-      me = null;
-      safeSet(TOKEN_KEY, "");
-      showAuth();
-      throw new Error("Unauthorized");
-    }
-
     if (!res.ok) {
-      const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
-      const e = new Error(res.status === 405
-        ? "HTTP 405: API Base non accetta questo metodo. Se stai su GitHub Pages devi usare un backend separato (server.js) e impostare API Base."
-        : msg
+      const msg =
+        (data && typeof data === "object" && data.error) ||
+        (typeof data === "string" && data) ||
+        `HTTP ${res.status}`;
+
+      const e = new Error(
+        res.status === 405
+          ? "HTTP 405: stai chiamando un host che non è il backend. Imposta API Base URL al dominio Render."
+          : res.status === 409
+          ? "Utente già esistente: usa Accedi."
+          : msg
       );
       e.status = res.status;
       e.payload = data;
+      e.url = url;
       throw e;
     }
 
@@ -379,6 +432,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
+      timeoutMs: 65000,
     });
 
     if (!data?.token) throw new Error("Login fallito");
@@ -391,6 +445,7 @@
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
+      timeoutMs: 65000,
     });
 
     if (!data?.token) throw new Error("Registrazione fallita");
@@ -1341,14 +1396,20 @@
     const fd = new FormData(els.registerForm);
     const username = String(fd.get("username") || "").trim();
     const password = String(fd.get("password") || "");
-    const password2 = String(fd.get("password2") || "");
 
     if (!apiBase) return showNotice("Inserisci API Base URL", "error");
-    if (password !== password2) return showNotice("Le password non coincidono", "error");
+    if (location.protocol === "https:" && isBlockedLocalNetworkUrl(apiBase)) {
+      return showNotice("Da GitHub Pages (HTTPS) non puoi usare http://localhost. Usa l’URL HTTPS del backend (Render).", "error");
+    }
+    if (!username || username.length < 3) return showNotice("Username troppo corto (min 3)", "error");
+    if (!password || password.length < 6) return showNotice("Password troppo corta (min 6)", "error");
 
     settings.apiBase = apiBase;
     if (!settings.wsUrl) settings.wsUrl = toWsUrl(apiBase);
     safeSet(SETTINGS_KEY, settings);
+
+    const restore = setBusy(els.registerForm, true, "Creazione...");
+    showNotice("Creo profilo... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
       await authRegister(username, password);
@@ -1357,15 +1418,9 @@
       render();
       showApp();
     } catch (err) {
-      if (err?.status === 409) {
-        showNotice("Utente già esistente. Vai su Login.", "error");
-        setAuthTab("login");
-        const u = els.loginForm.querySelector("input[name='username']");
-        if (u) u.value = username;
-        els.loginForm.querySelector("input[name='password']")?.focus?.();
-        return;
-      }
       showNotice(String(err?.message || err || "Errore"), "error");
+    } finally {
+      restore();
     }
   });
 
@@ -1379,10 +1434,18 @@
     const password = String(fd.get("password") || "");
 
     if (!apiBase) return showNotice("Inserisci API Base URL", "error");
+    if (location.protocol === "https:" && isBlockedLocalNetworkUrl(apiBase)) {
+      return showNotice("Da GitHub Pages (HTTPS) non puoi usare http://localhost. Usa l’URL HTTPS del backend (Render).", "error");
+    }
+    if (!username) return showNotice("Inserisci username", "error");
+    if (!password) return showNotice("Inserisci password", "error");
 
     settings.apiBase = apiBase;
     if (!settings.wsUrl) settings.wsUrl = toWsUrl(apiBase);
     safeSet(SETTINGS_KEY, settings);
+
+    const restore = setBusy(els.loginForm, true, "Accesso...");
+    showNotice("Accesso... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
       await authLogin(username, password);
@@ -1392,6 +1455,8 @@
       showApp();
     } catch (err) {
       showNotice(String(err?.message || err || "Errore"), "error");
+    } finally {
+      restore();
     }
   });
 
