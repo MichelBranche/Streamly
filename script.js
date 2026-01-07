@@ -362,17 +362,29 @@
     }
     if (token) headers.set("Authorization", `Bearer ${token}`);
 
+    const timeoutMs = Number.isFinite(opts.timeoutMs) ? opts.timeoutMs : 65000;
+
     const controller = new AbortController();
-    const t = setTimeout(() => controller.abort(), 65000); // Render free can be slow on cold start
+    let timedOut = false;
+
+    const fetchPromise = fetch(url, { ...opts, headers, signal: controller.signal });
+
+    const timeoutPromise = new Promise((_, reject) => {
+      const t = setTimeout(() => {
+        timedOut = true;
+        try { controller.abort(); } catch {}
+        reject(new Error("Timeout: backend non risponde (cold start?). Riprova."));
+      }, timeoutMs);
+      fetchPromise.finally(() => clearTimeout(t));
+    });
 
     let res;
     try {
-      res = await fetch(url, { ...opts, headers, signal: controller.signal });
+      res = await Promise.race([fetchPromise, timeoutPromise]);
     } catch (e) {
+      if (timedOut) throw e;
       if (e?.name === "AbortError") throw new Error("Timeout: backend non risponde (cold start?). Riprova.");
       throw new Error("Errore rete: impossibile contattare il backend.");
-    } finally {
-      clearTimeout(t);
     }
 
     const isJson = (res.headers.get("content-type") || "").includes("application/json");
@@ -380,11 +392,9 @@
 
     if (res.status === 401) {
       const msg = (data && data.error) ? data.error : "Unauthorized";
-      // For login/register, do NOT reset session; it's just wrong credentials
       if (String(path).includes("/api/login") || String(path).includes("/api/register")) {
         throw new Error(msg);
       }
-      // Otherwise token is invalid/expired
       token = "";
       me = null;
       safeSet(TOKEN_KEY, "");
@@ -415,6 +425,34 @@
     token = data.token;
     safeSet(TOKEN_KEY, token);
   };
+
+  const checkHealth = async (apiBase) => {
+    const base = normalizeBase(apiBase || settings.apiBase || "");
+    if (!base) throw new Error("Inserisci API Base URL");
+    const t0 = performance.now();
+    const url = resolveUrl(base, "/api/health");
+
+    const controller = new AbortController();
+    const timeoutMs = 15000;
+    const to = setTimeout(() => {
+      try { controller.abort(); } catch {}
+    }, timeoutMs);
+
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { "Accept": "application/json" } });
+      const ms = Math.round(performance.now() - t0);
+      if (!res.ok) throw new Error(`Backend non OK (HTTP ${res.status})`);
+      const data = await res.json().catch(() => null);
+      if (!data?.ok) throw new Error("Backend non OK (/api/health)");
+      return { ok: true, ms };
+    } catch (e) {
+      if (e?.name === "AbortError") throw new Error("Backend non risponde (timeout 15s).");
+      throw new Error("Backend non raggiungibile.");
+    } finally {
+      clearTimeout(to);
+    }
+  };
+
 
   const authRegister = async (username, password) => {
     const data = await apiFetch("/api/register", {
@@ -1388,6 +1426,8 @@
     showNotice("Creo profilo... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
+      const h = await checkHealth(apiBase);
+      showNotice(`Backend OK (${h.ms}ms). Creazione...`, "info");
       await authRegister(username, password);
       await fetchMe();
       await fetchLibrary();
@@ -1424,6 +1464,8 @@
     showNotice("Accesso... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
+      const h = await checkHealth(apiBase);
+      showNotice(`Backend OK (${h.ms}ms). Accesso...`, "info");
       await authLogin(username, password);
       await fetchMe();
       await fetchLibrary();
@@ -1559,6 +1601,49 @@
     const prefill = settings.apiBase || normalizeBase(metaBase) || "";
     els.apiBaseInput.value = prefill;
     els.apiBaseInput2.value = prefill;
+    // Inject "Test backend" button under API Base inputs (debug friendly)
+    try {
+      const mk = (inputEl) => {
+        if (!inputEl || inputEl.dataset.streamlyTestInjected) return;
+        inputEl.dataset.streamlyTestInjected = "1";
+        const wrap = document.createElement("div");
+        wrap.style.display = "flex";
+        wrap.style.gap = "10px";
+        wrap.style.alignItems = "center";
+        wrap.style.marginTop = "10px";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "btn secondary";
+        btn.id = "streamlyTestBackendBtn";
+        btn.textContent = "Test backend";
+
+        const hint = document.createElement("span");
+        hint.style.opacity = "0.8";
+        hint.style.fontSize = "12px";
+        hint.textContent = "";
+
+        btn.addEventListener("click", async () => {
+          const base = normalizeBase(inputEl.value || "");
+          showNotice("Test backend...", "info");
+          try {
+            const h = await checkHealth(base);
+            hint.textContent = `OK (${h.ms}ms)`;
+            showNotice(`Backend OK (${h.ms}ms).`, "success");
+          } catch (e) {
+            hint.textContent = "KO";
+            showNotice(String(e?.message || e), "error");
+          }
+        });
+
+        wrap.appendChild(btn);
+        wrap.appendChild(hint);
+        inputEl.parentElement?.appendChild(wrap);
+      };
+
+      mk(els.apiBaseInput);
+      mk(els.apiBaseInput2);
+    } catch {}
 
     // default ws (only if apiBase present)
     if (!settings.wsUrl && settings.apiBase) {
