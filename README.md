@@ -1,23 +1,32 @@
-# Streamly (frontend)
+# Streamly — v21 (Netflix-like mockup) 🎬
 
-## Serve quello che hai fatto su Render?
-Sì: se il frontend è su GitHub Pages (HTTPS) non puoi dipendere da `http://localhost` per profili/libreria/watch-party remoto.
-Il backend deve stare online in HTTPS (es. Render) per:
-- registrazione/login
-- salvataggio libreria (non solo locale)
-- upload poster
-- watch party remoto (WebSocket)
+Mockup **Netflix-like** in **HTML/CSS/JS vanilla** + backend **Node.js** per:
+- profili (username + password)
+- libreria contenuti (vuota di default, la riempi tu)
+- poster upload
+- player (MP4/WEBM + embed YouTube/Vimeo se consentito)
+- Watch Party **locale** (BroadcastChannel) + **remoto** (WebSocket)
 
-## Cosa mettere in “API Base URL”
-Inserisci l’URL del tuo backend Render (quello che finisce con `.onrender.com`), per esempio:
-`https://streamly-ugmo.onrender.com`
+> Nota: la libreria è **intenzionalmente vuota** finché non aggiungi tu i contenuti.
 
-Nota: la WebSocket usa automaticamente lo stesso dominio su `/ws` (quindi `wss://.../ws`).
+---
 
-## 409 (Conflict) su /api/register
-Vuol dire che **l’utente esiste già**: vai su **Accedi** invece di **Crea profilo**.
+## Stack
+- Frontend: HTML + CSS + JS (no framework)
+- Backend: Node.js (HTTP API + WebSocket `/ws`)
+- Storage: file system (`data/` + `uploads/`)  
+  ⚠️ Su hosting “ephemeral” (Render Free senza disco persistente) i dati possono sparire a restart/deploy.
 
-## Config veloce senza riscrivere JS
-In `index.html` c’è:
-`<meta name="streamly-api-base" content="...">`
-Puoi metterci lì il tuo URL backend, e l’app lo precompila.
+---
+
+## Avvio rapido (locale)
+### 1) Frontend
+Apri `index.html` con:
+- VSCode **Live Server** (tipico: `http://127.0.0.1:5500`)
+- oppure qualunque server statico
+
+### 2) Backend
+Da `backend/`:
+```bash
+npm install
+node server.js
