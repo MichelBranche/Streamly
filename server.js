@@ -28,7 +28,13 @@ const USERS_FILE = path.join(DATA_DIR, "users.json");
 const SECRET_FILE = path.join(DATA_DIR, "secret.txt");
 
 const MAX_JSON = 1 * 1024 * 1024;      // 1MB
-const MAX_UPLOAD = 5 * 1024 * 1024;    // 5MB
+const MAX_UPLOAD = 5 * 1024 * 1024;    // 5MB (poster)
+const MAX_VIDEO_UPLOAD = (() => {
+  const mb = Number(process.env.STREAMLY_MAX_VIDEO_MB || 256);
+  const safe = Number.isFinite(mb) && mb > 0 ? mb : 256;
+  return Math.floor(safe * 1024 * 1024);
+})(); // default 256MB (video/trailer)
+
 const TOKEN_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "*")
@@ -41,46 +47,9 @@ const MIME_BY_EXT = {
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".webp": "image/webp",
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
 };
-
-const STATIC_MIME = {
-  ".html": "text/html; charset=utf-8",
-  ".css": "text/css; charset=utf-8",
-  ".js": "text/javascript; charset=utf-8",
-  ".mjs": "text/javascript; charset=utf-8",
-  ".json": "application/json; charset=utf-8",
-  ".map": "application/json; charset=utf-8",
-  ".svg": "image/svg+xml",
-  ".ico": "image/x-icon",
-  ".woff2": "font/woff2",
-  ".woff": "font/woff",
-  ".ttf": "font/ttf",
-  ".png": "image/png",
-  ".jpg": "image/jpeg",
-  ".jpeg": "image/jpeg",
-  ".webp": "image/webp",
-};
-
-const detectFrontendDir = () => {
-  const env = process.env.STREAMLY_FRONTEND_DIR;
-  const candidates = [
-    env,
-    process.cwd(),
-    path.join(process.cwd(), ".."),
-    __dirname,
-    path.join(__dirname, ".."),
-  ].filter(Boolean);
-
-  for (const c of candidates) {
-    const dir = path.resolve(c);
-    try {
-      if (fs.existsSync(path.join(dir, "index.html"))) return dir;
-    } catch {}
-  }
-  return null;
-};
-
-const FRONTEND_DIR = detectFrontendDir();
 
 let SECRET = null;
 
@@ -153,6 +122,80 @@ const writeJsonAtomic = async (file, data) => {
   await fsp.writeFile(tmp, JSON.stringify(data, null, 2), "utf8");
   await fsp.rename(tmp, file);
 };
+
+const handleSingleUpload = async (req, res, origin, {
+  uploadsDir,
+  fieldName,
+  extFromMime,
+  maxBytes,
+  returnKey,
+  tooBigMessage = "File troppo grande",
+  badFormatMessage = "Formato file non supportato",
+}) => {
+  await fsp.mkdir(uploadsDir, { recursive: true });
+
+  const bb = Busboy({
+    headers: req.headers,
+    limits: { fileSize: maxBytes, files: 1, fields: 10 },
+  });
+
+  let savedName = null;
+  let aborted = false;
+
+  const done = (status, obj) => {
+    if (aborted) return;
+    aborted = true;
+    sendJson(res, status, obj, origin);
+  };
+
+  bb.on("file", (field, file, info) => {
+    if (field !== fieldName) {
+      file.resume();
+      return;
+    }
+
+    const ext = extFromMime(info.mimeType);
+    if (!ext) {
+      file.resume();
+      return done(400, { error: badFormatMessage });
+    }
+
+    const filename = `${crypto.randomUUID()}${ext}`;
+    const target = path.join(uploadsDir, filename);
+    const ws = fs.createWriteStream(target);
+
+    file.on("limit", () => {
+      try { ws.destroy(); } catch {}
+      try { fs.unlinkSync(target); } catch {}
+      done(413, { error: tooBigMessage });
+    });
+
+    file.pipe(ws);
+
+    ws.on("finish", () => {
+      if (aborted) return;
+      savedName = filename;
+    });
+
+    ws.on("error", () => {
+      try { fs.unlinkSync(target); } catch {}
+      done(500, { error: "Upload fallito" });
+    });
+  });
+
+  bb.on("finish", () => {
+    if (aborted) return;
+    if (!savedName) return done(400, { error: "Nessun file caricato" });
+    const obj = {};
+    obj[returnKey] = `/uploads/${savedName}`;
+    return done(200, obj);
+  });
+
+  bb.on("error", () => done(400, { error: "Multipart non valido" }));
+
+  req.pipe(bb);
+};
+
 
 const readBodyJson = async (req) =>
   new Promise((resolve, reject) => {
@@ -297,13 +340,21 @@ const saveLibrary = async (username, lib) => {
 
 /* ------------------------------ uploads ------------------------------ */
 
-const extFromMime = (mime) => {
+const extFromImageMime = (mime) => {
   const m = String(mime || "").toLowerCase();
   if (m === "image/jpeg") return ".jpg";
   if (m === "image/png") return ".png";
   if (m === "image/webp") return ".webp";
   return "";
 };
+
+const extFromVideoMime = (mime) => {
+  const m = String(mime || "").toLowerCase();
+  if (m === "video/mp4") return ".mp4";
+  if (m === "video/webm") return ".webm";
+  return "";
+};
+
 
 const serveUpload = async (req, res, pathname, origin) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
@@ -335,56 +386,6 @@ const serveUpload = async (req, res, pathname, origin) => {
   }
 };
 
-const serveFile = async (req, res, filePath, origin) => {
-  const st = await fsp.stat(filePath);
-  if (!st.isFile()) throw new Error("not file");
-  const ext = path.extname(filePath).toLowerCase();
-  const ct = STATIC_MIME[ext] || MIME_BY_EXT[ext] || "application/octet-stream";
-
-  res.writeHead(200, {
-    "Content-Type": ct,
-    "Content-Length": st.size,
-    "Cache-Control": "no-store",
-    ...corsHeaders(origin),
-  });
-
-  if (req.method === "HEAD") return res.end();
-  fs.createReadStream(filePath).pipe(res);
-};
-
-const tryServeFrontend = async (req, res, pathname, origin) => {
-  if (!FRONTEND_DIR) return false;
-  if (req.method !== "GET" && req.method !== "HEAD") return false;
-
-  // Don't hijack API/uploads routes
-  if (pathname.startsWith("/api")) return false;
-  if (pathname.startsWith("/uploads/")) return false;
-
-  let reqPath = pathname;
-  try {
-    reqPath = decodeURIComponent(pathname);
-  } catch {}
-
-  if (reqPath === "/") reqPath = "/index.html";
-
-  const target = path.resolve(path.join(FRONTEND_DIR, "." + reqPath));
-  if (!target.startsWith(FRONTEND_DIR)) return false;
-
-  try {
-    await serveFile(req, res, target, origin);
-    return true;
-  } catch {
-    // SPA fallback: if it's a "route" (no extension), serve index.html
-    if (!path.extname(reqPath)) {
-      try {
-        await serveFile(req, res, path.join(FRONTEND_DIR, "index.html"), origin);
-        return true;
-      } catch {}
-    }
-    return false;
-  }
-};
-
 /* ------------------------------ routing ------------------------------ */
 
 const handler = async (req, res) => {
@@ -403,9 +404,6 @@ const handler = async (req, res) => {
   if (pathname.startsWith("/uploads/")) {
     return serveUpload(req, res, pathname, origin);
   }
-
-  // frontend static (same-origin UI -> avoids https->http localhost blocks)
-  if (await tryServeFrontend(req, res, pathname, origin)) return;
 
   // health
   if (req.method === "GET" && pathname === "/api/health") {
@@ -497,7 +495,7 @@ const handler = async (req, res) => {
         file.resume();
         return;
       }
-      const ext = extFromMime(info.mimeType);
+      const ext = extFromImageMime(info.mimeType);
       if (!ext) {
         file.resume();
         done(400, { error: "Formato poster non supportato (jpg/png/webp)" });
@@ -535,6 +533,41 @@ const handler = async (req, res) => {
     req.pipe(bb);
     return;
   }
+
+  // upload video (mp4/webm)
+  if (pathname === "/api/upload/video") {
+    if (!username) return requireAuth();
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed" }, origin);
+
+    await handleSingleUpload(req, res, origin, {
+      uploadsDir: UPLOADS_DIR,
+      fieldName: "video",
+      extFromMime: extFromVideoMime,
+      maxBytes: MAX_VIDEO_UPLOAD,
+      returnKey: "videoUrl",
+      tooBigMessage: `Video troppo grande (max ${Math.round(MAX_VIDEO_UPLOAD / (1024 * 1024))}MB)`,
+      badFormatMessage: "Formato video non supportato (mp4/webm)",
+    });
+    return;
+  }
+
+  // upload trailer (mp4/webm)
+  if (pathname === "/api/upload/trailer") {
+    if (!username) return requireAuth();
+    if (req.method !== "POST") return sendJson(res, 405, { error: "Method not allowed" }, origin);
+
+    await handleSingleUpload(req, res, origin, {
+      uploadsDir: UPLOADS_DIR,
+      fieldName: "trailer",
+      extFromMime: extFromVideoMime,
+      maxBytes: MAX_VIDEO_UPLOAD,
+      returnKey: "trailerUrl",
+      tooBigMessage: `Trailer troppo grande (max ${Math.round(MAX_VIDEO_UPLOAD / (1024 * 1024))}MB)`,
+      badFormatMessage: "Formato trailer non supportato (mp4/webm)",
+    });
+    return;
+  }
+
 
   // library
   if (pathname === "/api/library") {
@@ -733,7 +766,5 @@ const broadcastToRoom = (room, fromWs, msg) => {
 
   server.listen(PORT, () => {
     console.log(`Streamly backend on http://localhost:${PORT}`);
-    if (FRONTEND_DIR) console.log(`Serving frontend from: ${FRONTEND_DIR}`);
-    else console.log(`Frontend not found (set STREAMLY_FRONTEND_DIR).`);
   });
 })();

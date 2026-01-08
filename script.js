@@ -724,6 +724,25 @@ const showAuth = () => {
     return data.posterUrl;
   };
 
+  const uploadVideo = async (file) => {
+    const fd = new FormData();
+    fd.append("video", file);
+
+    const data = await apiFetch("/api/upload/video", { method: "POST", body: fd });
+    if (!data?.videoUrl) throw new Error("Upload video fallito");
+    return data.videoUrl;
+  };
+
+  const uploadTrailer = async (file) => {
+    const fd = new FormData();
+    fd.append("trailer", file);
+
+    const data = await apiFetch("/api/upload/trailer", { method: "POST", body: fd });
+    if (!data?.trailerUrl) throw new Error("Upload trailer fallito");
+    return data.trailerUrl;
+  };
+
+
   /* ------------------------------ modal utils ------------------------------ */
   const openStack = [];
 
@@ -849,14 +868,27 @@ const showAuth = () => {
     const fd = new FormData(els.addForm);
     const title = String(fd.get("title") || "").trim();
     const kind = String(fd.get("kind") || "movie");
-    const videoUrl = String(fd.get("videoUrl") || "").trim();
-    const trailerUrl = String(fd.get("trailerUrl") || "").trim();
-    const posterFile = fd.get("posterFile");
 
-    if (!title || !videoUrl || !(posterFile instanceof File) || posterFile.size === 0) return;
+    const videoUrlInput = String(fd.get("videoUrl") || "").trim();
+    const trailerUrlInput = String(fd.get("trailerUrl") || "").trim();
+    const posterUrlInput = String(fd.get("posterUrl") || "").trim();
+
+    const posterFile = fd.get("posterFile");
+    const videoFile = fd.get("videoFile");
+    const trailerFile = fd.get("trailerFile");
+
+    const hasPosterFile = posterFile instanceof File && posterFile.size > 0;
+    const hasVideoFile = videoFile instanceof File && videoFile.size > 0;
+    const hasTrailerFile = trailerFile instanceof File && trailerFile.size > 0;
+
+    if (!title) return alert("Inserisci un titolo.");
+    if (!hasVideoFile && !videoUrlInput) return alert("Inserisci un Video URL oppure carica un file (mp4/webm).");
+    if (!hasPosterFile && !posterUrlInput) return alert("Carica un poster oppure inserisci un Poster URL.");
 
     try {
-      const posterUrl = await uploadPoster(posterFile);
+      const posterUrl = hasPosterFile ? await uploadPoster(posterFile) : posterUrlInput;
+      const videoUrl = hasVideoFile ? await uploadVideo(videoFile) : videoUrlInput;
+      const trailerUrl = hasTrailerFile ? await uploadTrailer(trailerFile) : (trailerUrlInput || "");
 
       const created = await apiFetch("/api/library", {
         method: "POST",
@@ -866,7 +898,7 @@ const showAuth = () => {
           kind,
           posterUrl,
           videoUrl,
-          trailerUrl: trailerUrl || "",
+          trailerUrl,
         }),
       });
 
