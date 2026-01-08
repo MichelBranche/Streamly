@@ -110,6 +110,115 @@
     return `${apiBase}/${u}`;
   };
 
+
+  // ------------------------------ debug ------------------------------
+  const streamlyDebugLog = [];
+  const pushDebug = (entry) => {
+    try {
+      streamlyDebugLog.push({ ...entry, ts: new Date().toISOString() });
+      while (streamlyDebugLog.length > 60) streamlyDebugLog.shift();
+    } catch {}
+  };
+
+  const toSnippet = (data) => {
+    try {
+      if (data == null) return "";
+      if (typeof data === "string") return data.slice(0, 280);
+      return JSON.stringify(data).slice(0, 280);
+    } catch {
+      return "";
+    }
+  };
+
+  const showDebugModal = () => {
+    const existing = document.getElementById("streamlyDebugModal");
+    if (existing) { existing.style.display = "flex"; return; }
+
+    const overlay = document.createElement("div");
+    overlay.id = "streamlyDebugModal";
+    overlay.style.position = "fixed";
+    overlay.style.inset = "0";
+    overlay.style.zIndex = "99999";
+    overlay.style.display = "flex";
+    overlay.style.alignItems = "center";
+    overlay.style.justifyContent = "center";
+    overlay.style.background = "rgba(0,0,0,.72)";
+    overlay.addEventListener("click", (e) => { if (e.target === overlay) overlay.style.display = "none"; });
+
+    const card = document.createElement("div");
+    card.style.width = "min(980px, 94vw)";
+    card.style.maxHeight = "min(80vh, 760px)";
+    card.style.overflow = "auto";
+    card.style.background = "#0f1115";
+    card.style.border = "1px solid rgba(255,255,255,.12)";
+    card.style.borderRadius = "16px";
+    card.style.boxShadow = "0 18px 60px rgba(0,0,0,.6)";
+    card.style.padding = "16px";
+
+    const header = document.createElement("div");
+    header.style.display = "flex";
+    header.style.alignItems = "center";
+    header.style.justifyContent = "space-between";
+    header.style.gap = "12px";
+    header.style.marginBottom = "12px";
+
+    const title = document.createElement("div");
+    title.innerHTML = '<div style="font-weight:700">Streamly Debug Log</div><div style="opacity:.75;font-size:12px">Ultime chiamate API</div>';
+
+    const actions = document.createElement("div");
+    actions.style.display = "flex";
+    actions.style.gap = "10px";
+
+    const btnCopy = document.createElement("button");
+    btnCopy.type = "button";
+    btnCopy.className = "btn secondary";
+    btnCopy.textContent = "Copia JSON";
+    btnCopy.addEventListener("click", async () => {
+      const payload = JSON.stringify(streamlyDebugLog, null, 2);
+      try {
+        await navigator.clipboard.writeText(payload);
+        showNotice("Log copiato negli appunti.", "success");
+      } catch {
+        showNotice("Impossibile copiare. Seleziona e copia manualmente.", "error");
+      }
+    });
+
+    const btnClose = document.createElement("button");
+    btnClose.type = "button";
+    btnClose.className = "btn";
+    btnClose.textContent = "Chiudi";
+    btnClose.addEventListener("click", () => (overlay.style.display = "none"));
+
+    actions.appendChild(btnCopy);
+    actions.appendChild(btnClose);
+    header.appendChild(title);
+    header.appendChild(actions);
+
+    const pre = document.createElement("pre");
+    pre.style.whiteSpace = "pre-wrap";
+    pre.style.wordBreak = "break-word";
+    pre.style.fontSize = "12px";
+    pre.style.lineHeight = "1.35";
+    pre.style.padding = "12px";
+    pre.style.borderRadius = "12px";
+    pre.style.background = "rgba(255,255,255,.04)";
+    pre.style.border = "1px solid rgba(255,255,255,.08)";
+    pre.style.margin = "0";
+
+    const render = () => { pre.textContent = JSON.stringify(streamlyDebugLog, null, 2); };
+    render();
+
+    card.appendChild(header);
+    card.appendChild(pre);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+
+    // refresh whenever opened
+    const obs = new MutationObserver(render);
+    obs.observe(overlay, { attributes: true, attributeFilter: ["style"] });
+  };
+
+
   const kindLabel = (kind) => {
     if (kind === "movie") return "Film";
     if (kind === "series") return "Serie";
@@ -354,6 +463,9 @@
     if (!apiBase) throw new Error("Inserisci API Base URL (backend HTTPS).");
 
     const url = resolveUrl(apiBase, path.startsWith("/") ? path : `/${path}`);
+    const method = String(opts.method || "GET").toUpperCase();
+    const t0 = performance.now();
+    pushDebug({ phase: "request", method, url, hasAuth: !!token });
 
     const headers = new Headers(opts.headers || {});
     headers.set("Accept", "application/json");
@@ -373,6 +485,7 @@
       const t = setTimeout(() => {
         timedOut = true;
         try { controller.abort(); } catch {}
+        pushDebug({ phase: "timeout", method, url, ok: false, ms: Math.round(performance.now() - t0) });
         reject(new Error("Timeout: backend non risponde (cold start?). Riprova."));
       }, timeoutMs);
       fetchPromise.finally(() => clearTimeout(t));
@@ -384,11 +497,13 @@
     } catch (e) {
       if (timedOut) throw e;
       if (e?.name === "AbortError") throw new Error("Timeout: backend non risponde (cold start?). Riprova.");
+      pushDebug({ phase: "network-error", method, url, ok: false, ms: Math.round(performance.now() - t0), error: String(e?.message || e) });
       throw new Error("Errore rete: impossibile contattare il backend.");
     }
 
     const isJson = (res.headers.get("content-type") || "").includes("application/json");
     const data = isJson ? await res.json().catch(() => null) : await res.text().catch(() => "");
+    pushDebug({ phase: "response", method, url, status: res.status, ok: res.ok, ms: Math.round(performance.now() - t0), snippet: toSnippet(data) });
 
     if (res.status === 401) {
       const rawMsg = (data && data.error) ? data.error : "Unauthorized";
@@ -1441,10 +1556,14 @@
     showNotice("Creo profilo... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
+      showNotice('Step 1/4: /api/health…', "info");
       const h = await checkHealth(apiBase);
       showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Creazione...`, "info");
+      showNotice('Step 2/4: POST /api/register…', "info");
       await authRegister(apiBase, username, password);
+      showNotice('Step 3/4: GET /api/me…', "info");
       await fetchMe();
+      showNotice('Step 4/4: GET /api/library…', "info");
       await fetchLibrary();
       render();
       showApp();
@@ -1479,10 +1598,14 @@
     showNotice("Accesso... (Render Free può impiegare fino a ~50s se era in sleep)", "info");
 
     try {
+      showNotice('Step 1/4: /api/health…', "info");
       const h = await checkHealth(apiBase);
       showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Accesso...`, "info");
+      showNotice('Step 2/4: POST /api/login…', "info");
       await authLogin(apiBase, username, password);
+      showNotice('Step 3/4: GET /api/me…', "info");
       await fetchMe();
+      showNotice('Step 4/4: GET /api/library…', "info");
       await fetchLibrary();
       render();
       showApp();
@@ -1633,6 +1756,12 @@
         btn.id = "streamlyTestBackendBtn";
         btn.textContent = "Test backend";
 
+        const btnLog = document.createElement("button");
+        btnLog.type = "button";
+        btnLog.className = "btn secondary";
+        btnLog.textContent = "Mostra log";
+        btnLog.addEventListener("click", () => showDebugModal());
+
         const hint = document.createElement("span");
         hint.style.opacity = "0.8";
         hint.style.fontSize = "12px";
@@ -1652,6 +1781,7 @@
         });
 
         wrap.appendChild(btn);
+        wrap.appendChild(btnLog);
         wrap.appendChild(hint);
         inputEl.parentElement?.appendChild(wrap);
       };
