@@ -5,6 +5,18 @@
       "salt": "1c281d41547d77f8c7cbd4b15faf0a20",
       "hash": "d58b545ba6698ac4f3a850778ec717476a3ce1bf8220e3574dd1f04d66e6b174",
       "createdAt": 1767824492750
+    },
+    "jacopo": {
+      "username": "jacopo",
+      "salt": "f6d276be6baff82af40adb6db66fdfbc",
+      "hash": "c1fcdb4f241d1a52ac6ef04b9833fe358e0ead767d8009db1126ec8a4a42061f",
+      "createdAt": 1767826148547
+    },
+    "admin": {
+      "username": "admin",
+      "salt": "69a60344dbf8183f076f30fc5ae04024",
+      "hash": "3bfb0fd41aa45ba66f13a3295304567eb2f62dfadbbe992c0b9fa1297ca6e353",
+      "createdAt": 1767831283727
     }
   }
 }

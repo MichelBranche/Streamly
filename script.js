@@ -21,6 +21,7 @@
   /* ------------------------------ storage keys ------------------------------ */
   const SETTINGS_KEY = "streamly:v5:settings";
   const TOKEN_KEY = "streamly:v5:token";
+  const TOKEN_BASE_KEY = "streamly:v5:tokenBase";
 
   /* ------------------------------ helpers ------------------------------ */
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -282,7 +283,9 @@
   });
 
   let token = safeGet(TOKEN_KEY, "");
-  let me = null; // { username }
+  
+  let tokenBase = safeGet(TOKEN_BASE_KEY, "");
+let me = null; // { username }
 
   let library = [];
   let activeFilter = "all";
@@ -420,21 +423,121 @@
   };
 
 
-  const showAuth = () => {
+  
+  // ------------------------------ route transitions ------------------------------
+  let routeTimers = [];
+  const clearRouteTimers = () => {
+    try {
+      routeTimers.forEach((t) => clearTimeout(t));
+    } catch {}
+    routeTimers = [];
+  };
+
+  const ensureRouteLoader = () => {
+    let el = document.getElementById("routeLoader");
+    if (el) return el;
+
+    el = document.createElement("div");
+    el.id = "routeLoader";
+    el.className = "route-loader";
+    el.innerHTML = `
+      <div class="route-loader__card" role="status" aria-live="polite" aria-label="Caricamento">
+        <div class="route-loader__spinner" aria-hidden="true"></div>
+        <div class="route-loader__text">
+          <div class="route-loader__title" id="routeLoaderTitle">Caricamento…</div>
+          <div class="route-loader__sub" id="routeLoaderSub">Attendi un momento</div>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(el);
+    return el;
+  };
+
+  const setRouteLoading = (on, title = "Caricamento…", sub = "Attendi un momento") => {
+    const el = ensureRouteLoader();
+    const t = document.getElementById("routeLoaderTitle");
+    const s = document.getElementById("routeLoaderSub");
+    if (t) t.textContent = title;
+    if (s) s.textContent = sub;
+
+    if (on) {
+      document.body.classList.add("is-route-loading");
+      el.classList.add("is-on");
+    } else {
+      el.classList.remove("is-on");
+      document.body.classList.remove("is-route-loading");
+    }
+  };
+
+  const transitionToApp = () => {
+    clearRouteTimers();
+
+    // force-hide auth even if CSS is weird
+    els.authScreen.classList.remove("view-in");
+    els.app.classList.remove("view-out");
+
+    setRouteLoading(true, "Caricamento…", "Sto preparando la home");
+
+    // animate auth out
+    els.authScreen.hidden = false;
+    els.authScreen.style.display = ""; // default
+    els.authScreen.classList.add("view-out");
+
+    const t1 = setTimeout(() => {
+      // hard hide auth
+      els.authScreen.hidden = true;
+      els.authScreen.style.display = "none";
+      els.authScreen.classList.remove("view-out");
+
+      // show app
+      els.app.hidden = false;
+      els.app.style.display = "";
+      els.app.classList.add("view-in");
+    }, 260);
+
+    const t2 = setTimeout(() => {
+      els.app.classList.remove("view-in");
+      setRouteLoading(false);
+    }, 620);
+
+    routeTimers.push(t1, t2);
+  };
+
+  const transitionToAuth = () => {
+    clearRouteTimers();
+    setRouteLoading(false);
+
+    // hide app immediately
+    els.app.classList.remove("view-in");
+    els.app.hidden = true;
+    els.app.style.display = "none";
+
+    // show auth with entrance
+    els.authScreen.hidden = false;
+    els.authScreen.style.display = "";
+    els.authScreen.classList.add("view-in");
+
+    const t = setTimeout(() => {
+      els.authScreen.classList.remove("view-in");
+    }, 340);
+
+    routeTimers.push(t);
+  };
+
+const showAuth = () => {
     // stop sync + close player/modals
     try { partyStop(); } catch {}
     try { closePlayer(); } catch {}
     hideAllModals();
 
-    els.app.hidden = true;
-    els.authScreen.hidden = false;
+    transitionToAuth();
     showNotice("", "info");
   };
 
   const showApp = () => {
-    els.authScreen.hidden = true;
-    els.app.hidden = false;
+    // ensure username is ready before we transition
     els.userName.textContent = me?.username || "—";
+    transitionToApp();
   };
 
   const setAuthTab = (tab) => {
@@ -552,6 +655,8 @@
     if (!data?.token) throw new Error("Login fallito");
     token = data.token;
     safeSet(TOKEN_KEY, token);
+    tokenBase = normalizeBase(apiBase);
+    safeSet(TOKEN_BASE_KEY, tokenBase);
   };
 
   const checkHealth = async (apiBase) => {
@@ -595,6 +700,8 @@
     if (!data?.token) throw new Error("Registrazione fallita");
     token = data.token;
     safeSet(TOKEN_KEY, token);
+    tokenBase = normalizeBase(apiBase);
+    safeSet(TOKEN_BASE_KEY, tokenBase);
   };
 
   const fetchMe = async () => {
@@ -1478,6 +1585,17 @@
       wsUrl: els.wsUrl.value.trim() || toWsUrl(els.apiBase.value) || "",
     };
     safeSet(SETTINGS_KEY, settings);
+    // Token is bound to the backend it was issued from (important with trycloudflare URLs).
+    // If API Base changes, drop token to avoid calling old tunnel domains.
+    if (token && tokenBase && tokenBase !== settings.apiBase) {
+      try { pushDebug({ phase: "token-base-mismatch", oldBase: tokenBase, newBase: settings.apiBase }); } catch {}
+      token = "";
+      tokenBase = "";
+      me = null;
+      safeSet(TOKEN_KEY, "");
+      safeSet(TOKEN_BASE_KEY, "");
+      showNotice("API Base cambiato: ho resettato la sessione. Rifai login.", "info");
+    }
     hideModal("settingsModal");
   };
 

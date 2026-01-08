@@ -17,10 +17,6 @@ const path = require("path");
 const fs = require("fs");
 const fsp = fs.promises;
 const crypto = require("crypto");
-
-const INSTANCE_ID = crypto.randomUUID();
-let SECRET_ID = "unknown";
-const VERSION = "v15";
 const Busboy = require("busboy");
 const { WebSocketServer } = require("ws");
 
@@ -309,19 +305,6 @@ const extFromMime = (mime) => {
   return "";
 };
 
-const checkDirWritable = async (dir) => {
-  try {
-    await fsp.mkdir(dir, { recursive: true });
-    const p = path.join(dir, `.wtest_${crypto.randomUUID()}.tmp`);
-    await fsp.writeFile(p, "ok", "utf8");
-    await fsp.unlink(p);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-
 const serveUpload = async (req, res, pathname, origin) => {
   if (req.method !== "GET" && req.method !== "HEAD") {
     sendJson(res, 405, { error: "Method not allowed" }, origin);
@@ -426,27 +409,7 @@ const handler = async (req, res) => {
 
   // health
   if (req.method === "GET" && pathname === "/api/health") {
-    const users = await readJson(USERS_FILE, { users: {} });
-    const usersCount = users?.users ? Object.keys(users.users).length : 0;
-    const dataWritable = await checkDirWritable(DATA_DIR);
-    const uploadsWritable = await checkDirWritable(UPLOADS_DIR);
-    return sendJson(
-      res,
-      200,
-      {
-        ok: true,
-        ts: now(),
-        version: VERSION,
-        instanceId: INSTANCE_ID,
-        secretId: SECRET_ID,
-        dataDir: DATA_DIR,
-        uploadsDir: UPLOADS_DIR,
-        dataWritable,
-        uploadsWritable,
-        usersCount,
-      },
-      origin
-    );
+    return sendJson(res, 200, { ok: true, ts: now() }, origin);
   }
 
   // register
@@ -714,7 +677,6 @@ const broadcastToRoom = (room, fromWs, msg) => {
   await fsp.mkdir(DATA_DIR, { recursive: true });
   await fsp.mkdir(UPLOADS_DIR, { recursive: true });
   SECRET = await loadOrCreateSecret();
-  SECRET_ID = crypto.createHash("sha256").update(String(SECRET)).digest("hex").slice(0, 10);
 
   // Ensure users.json exists
   const u = await readJson(USERS_FILE, null);
