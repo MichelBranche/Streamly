@@ -349,8 +349,8 @@
   };
 
   /* ------------------------------ API ------------------------------ */
-  const apiFetch = async (path, opts = {}) => {
-    const apiBase = normalizeBase(settings.apiBase || "");
+  const apiFetchWithBase = async (base, path, opts = {}) => {
+    const apiBase = normalizeBase(base || "");
     if (!apiBase) throw new Error("Inserisci API Base URL (backend HTTPS).");
 
     const url = resolveUrl(apiBase, path.startsWith("/") ? path : `/${path}`);
@@ -394,15 +394,13 @@
       const rawMsg = (data && data.error) ? data.error : "Unauthorized";
       const msg =
         rawMsg === "Unauthorized"
-          ? "Credenziali non valide (o utente non esiste su questo backend). Se non hai mai creato l’utente su Render, usa “Crea profilo”."
+          ? "Credenziali non valide (o utente non esiste su questo backend). Se non hai mai creato l’utente su questo URL, usa “Crea profilo”."
           : rawMsg;
 
-      // For login/register, do NOT reset session; it's just wrong credentials
       if (String(path).includes("/api/login") || String(path).includes("/api/register")) {
         throw new Error(msg);
       }
 
-      // Otherwise token is invalid/expired
       token = "";
       me = null;
       safeSet(TOKEN_KEY, "");
@@ -412,7 +410,7 @@
 
     if (!res.ok) {
       if (res.status === 405) {
-        throw new Error("HTTP 405: stai chiamando il frontend statico. Imposta API Base sul backend (Render).");
+        throw new Error("HTTP 405: stai chiamando il frontend statico. Imposta API Base sul backend.");
       }
       const msg = (data && data.error) ? data.error : `HTTP ${res.status}`;
       throw new Error(msg);
@@ -421,8 +419,13 @@
     return data;
   };
 
-  const authLogin = async (username, password) => {
-    const data = await apiFetch("/api/login", {
+  const apiFetch = async (path, opts = {}) => {
+    // IMPORTANT: always uses the *current* saved apiBase
+    return apiFetchWithBase(settings.apiBase, path, opts);
+  };
+
+  const authLogin = async (apiBase, username, password) => {
+    const data = await apiFetchWithBase(apiBase, "/api/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -464,8 +467,8 @@
   };
 
 
-  const authRegister = async (username, password) => {
-    const data = await apiFetch("/api/register", {
+  const authRegister = async (apiBase, username, password) => {
+    const data = await apiFetchWithBase(apiBase, "/api/register", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ username, password }),
@@ -1440,7 +1443,7 @@
     try {
       const h = await checkHealth(apiBase);
       showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Creazione...`, "info");
-      await authRegister(username, password);
+      await authRegister(apiBase, username, password);
       await fetchMe();
       await fetchLibrary();
       render();
@@ -1478,7 +1481,7 @@
     try {
       const h = await checkHealth(apiBase);
       showNotice(`Backend OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}. Accesso...`, "info");
-      await authLogin(username, password);
+      await authLogin(apiBase, username, password);
       await fetchMe();
       await fetchLibrary();
       render();
@@ -1637,7 +1640,7 @@
 
         btn.addEventListener("click", async () => {
           const base = normalizeBase(inputEl.value || "");
-          showNotice("Test backend...", "info");
+          showNotice(`Test backend... (${base})`, "info");
           try {
             const h = await checkHealth(base);
             hint.textContent = `OK (${h.ms}ms) • inst ${h.health?.instanceId || "?"} • users ${h.health?.usersCount ?? "?"}`;
