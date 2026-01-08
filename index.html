@@ -4,7 +4,6 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="color-scheme" content="dark" />
-  <meta name="streamly-api-base" content="https://streamly-ugmo.onrender.com" />
   <title>Streamly</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -35,30 +34,30 @@
         <button class="seg__btn" type="button" data-auth-tab="login" role="tab" aria-selected="false">Accedi</button>
       </div>
 
-      <form class="form" id="registerForm" autocomplete="on">
+      <form class="form" id="registerForm" autocomplete="off">
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">API Base URL</span>
-            <input class="field__input" id="apiBaseInput" type="url" placeholder="https://tuo-server.example" required autocomplete="url">
+            <input class="field__input" id="apiBaseInput" type="url" placeholder="https://tuo-server.example" required />
           </label>
         </div>
 
         <div class="form__row">
           <label class="field">
             <span class="field__label">Username</span>
-            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9_\-]{3,24}" placeholder="es. michel" required  autocomplete="username" />
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" pattern="[A-Za-z0-9_\-]{3,24}" placeholder="es. michel" required />
           </label>
 
           <label class="field">
             <span class="field__label">Password</span>
-            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required  autocomplete="new-password" />
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
           </label>
         </div>
 
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">Conferma password</span>
-            <input class="field__input" name="password2" type="password" minlength="6" maxlength="72" required  autocomplete="new-password" />
+            <input class="field__input" name="password2" type="password" minlength="6" maxlength="72" required />
           </label>
         </div>
 
@@ -71,23 +70,23 @@
         </p>
       </form>
 
-      <form class="form" id="loginForm" hidden autocomplete="on">
+      <form class="form" id="loginForm" hidden autocomplete="off">
         <div class="form__row">
           <label class="field field--wide">
             <span class="field__label">API Base URL</span>
-            <input class="field__input" id="apiBaseInput2" type="url" placeholder="https://tuo-server.example" required autocomplete="url">
+            <input class="field__input" id="apiBaseInput2" type="url" placeholder="https://tuo-server.example" required />
           </label>
         </div>
 
         <div class="form__row">
           <label class="field">
             <span class="field__label">Username</span>
-            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" required  autocomplete="username" />
+            <input class="field__input" name="username" type="text" minlength="3" maxlength="24" required />
           </label>
 
           <label class="field">
             <span class="field__label">Password</span>
-            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required  autocomplete="current-password" />
+            <input class="field__input" name="password" type="password" minlength="6" maxlength="72" required />
           </label>
         </div>
 
@@ -203,17 +202,31 @@
           <div class="form__row">
             <label class="field field--wide">
               <span class="field__label">Poster (upload)</span>
-              <input class="field__input" name="posterFile" type="file" accept="image/*" required />
+              <input class="field__input" name="posterFile" type="file" accept="image/*" />
             </label>
           </div>
+          <div class="form__row">
+            <label class="field field--wide">
+              <span class="field__label">Poster URL (opzionale)</span>
+              <input class="field__input" name="posterUrl" type="url" placeholder="https://... (se non fai upload)" />
+            </label>
+          </div>
+
 
           <fieldset class="fieldset">
             <legend class="fieldset__legend">Video principale</legend>
 
+            
             <div class="form__row">
               <label class="field field--wide">
+                <span class="field__label">Upload file (mp4/webm)</span>
+                <input class="field__input" name="videoFile" type="file" accept="video/mp4,video/webm" />
+              </label>
+            </div>
+<div class="form__row">
+              <label class="field field--wide">
                 <span class="field__label">URL</span>
-                <input class="field__input" name="videoUrl" type="url" placeholder="mp4/webm oppure link YouTube/Vimeo" required />
+                <input class="field__input" name="videoUrl" type="url" placeholder="mp4/webm oppure link YouTube/Vimeo" />
               </label>
             </div>
 
@@ -225,7 +238,14 @@
           <fieldset class="fieldset">
             <legend class="fieldset__legend">Trailer (opzionale)</legend>
 
+            
             <div class="form__row">
+              <label class="field field--wide">
+                <span class="field__label">Trailer (upload mp4/webm, opzionale)</span>
+                <input class="field__input" name="trailerFile" type="file" accept="video/mp4,video/webm" />
+              </label>
+            </div>
+<div class="form__row">
               <label class="field field--wide">
                 <span class="field__label">Trailer URL</span>
                 <input class="field__input" name="trailerUrl" type="url" placeholder="Lascia vuoto se non serve" />
@@ -239,7 +259,7 @@
           </div>
 
           <p class="fineprint">
-            Salvataggio su server: poster + libreria per profilo.
+            Salvataggio su server: poster + (opzionale) video/trailer upload + libreria per profilo.
           </p>
         </form>
       </div>
